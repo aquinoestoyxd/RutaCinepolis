@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package*.json ./
 COPY tsconfig.json ./
 
-RUN npm ci --only=production && npm ci
+RUN npm ci
 
 COPY prisma ./prisma/
 RUN npx prisma generate
@@ -13,10 +13,9 @@ RUN npx prisma generate
 COPY src ./src/
 RUN npm run build
 
-# ──────────────────────────────────────────────
 FROM node:20-alpine AS production
 
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init openssl
 
 ENV NODE_ENV=production
 
@@ -31,7 +30,7 @@ COPY --chown=cinepolis:nodejs package*.json ./
 
 USER cinepolis
 
-EXPOSE 3000
+EXPOSE 3001
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "dist/server.js"]
+CMD ["sh", "-c", "npx prisma db push && node dist/server.js"]

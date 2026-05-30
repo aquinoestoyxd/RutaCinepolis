@@ -1,4 +1,4 @@
-# ── Backend ──────────────────────────────────────
+# Backend
 backend/node_modules/
 backend/dist/
 backend/.env
@@ -8,12 +8,16 @@ backend/coverage/
 backend/*.tsbuildinfo
 backend/prisma/migrations/
 
-# ── Frontend ─────────────────────────────────────
+# Frontend
 frontend/node_modules/
 frontend/dist/
 frontend/.env
 frontend/*.log
 
-# ── General ──────────────────────────────────────
+# Deployment secrets
+.env.prod
+.env.*.local
+
+# General
 .DS_Store
 Thumbs.db
