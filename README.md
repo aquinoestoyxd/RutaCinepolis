@@ -1,3 +1,3 @@
 # RutaCinepolis
-1
-2
+
+Sistema de membresía para Cinépolis Perú
