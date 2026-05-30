@@ -31,10 +31,6 @@ export class PosService {
     });
 
     if (!member) throw new NotFoundError('Miembro con esa tarjeta');
-    if (member.status !== 'ACTIVE') {
-      throw new BusinessRuleError(`Membresía ${member.status.toLowerCase()}. No se pueden procesar transacciones.`);
-    }
-
     return member;
   }
 
@@ -44,6 +40,10 @@ export class PosService {
    */
   async processTransaction(dto: PosTransactionDto, cashierId: string) {
     const member = await this.lookupByCard(dto.cardNumber);
+
+    if (member.status !== 'ACTIVE') {
+      throw new BusinessRuleError(`Membresía ${member.status.toLowerCase()}. No se pueden procesar transacciones.`);
+    }
 
     return pointsService.earnPoints({
       memberId: member.id,

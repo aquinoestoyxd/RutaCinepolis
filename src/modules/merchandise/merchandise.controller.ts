@@ -9,7 +9,7 @@ import { ResponseHelper } from '../../shared/utils/apiResponse';
  *   description: Kit Golden y gestión de stock (RC-F07)
  */
 export class MerchandiseController {
-  async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async findAll(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const items = await merchandiseService.findAll();
       ResponseHelper.success(res, items);

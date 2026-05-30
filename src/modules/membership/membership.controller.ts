@@ -9,7 +9,7 @@ import { ResponseHelper } from '../../shared/utils/apiResponse';
  *   description: Niveles de membresía y progreso (RC-F03, RC-F06)
  */
 export class MembershipController {
-  async getLevels(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getLevels(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const levels = await membershipService.getLevels();
       ResponseHelper.success(res, levels);

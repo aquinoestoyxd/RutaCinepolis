@@ -1,26 +1,21 @@
 import { z } from 'zod';
 import { MemberStatus } from '../../shared/types/enums';
 
+// El cajero registra al miembro presencialmente y elige el nivel
 export const registerMemberSchema = z.object({
-  dni: z
-    .string()
-    .length(8, 'El DNI debe tener 8 dígitos')
-    .regex(/^\d{8}$/, 'El DNI debe contener solo dígitos'),
+  dni: z.string().length(8, 'El DNI debe tener 8 dígitos').regex(/^\d{8}$/, 'Solo dígitos'),
   firstName: z.string().min(2).max(100).trim(),
   lastName: z.string().min(2).max(100).trim(),
-  email: z.string().email('Correo inválido').max(150),
+  email: z.string().email('Correo inválido').max(150).optional(),
   phone: z.string().regex(/^\+?[0-9]{9,15}$/).optional(),
   birthDate: z.string().date('Fecha inválida (YYYY-MM-DD)').optional(),
-  password: z
-    .string()
-    .min(8, 'Mínimo 8 caracteres')
-    .regex(/[A-Z]/, 'Debe contener mayúscula')
-    .regex(/[0-9]/, 'Debe contener número'),
+  levelId: z.string().uuid('ID de nivel inválido'),
 });
 
 export const updateMemberSchema = z.object({
   firstName: z.string().min(2).max(100).trim().optional(),
   lastName: z.string().min(2).max(100).trim().optional(),
+  email: z.string().email().max(150).optional().nullable(),
   phone: z.string().regex(/^\+?[0-9]{9,15}$/).optional().nullable(),
   birthDate: z.string().date().optional().nullable(),
 });

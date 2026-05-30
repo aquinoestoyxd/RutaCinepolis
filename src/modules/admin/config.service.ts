@@ -55,7 +55,7 @@ export class ConfigService {
           action: AuditAction.CONFIG_CHANGE,
           entity: 'SystemConfig',
           entityId: key,
-          oldValue: existing ? { value: existing.value } : null,
+          oldValue: existing ? { value: existing.value } : undefined,
           newValue: { value },
         },
       });

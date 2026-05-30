@@ -101,7 +101,7 @@ export class PointsService {
     });
 
     // Verificar upgrade de nivel (RC-F06) — fuera de la transacción atómica principal
-    const upgraded = await membershipService.checkAndUpgradeLevel(params.memberId);
+    const upgraded = await membershipService.checkAndUpgradeLevel(params.memberId, params.cashierId);
 
     if (pointsEarned > 0) {
       await notificationService.create(params.memberId, {

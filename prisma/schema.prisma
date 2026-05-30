@@ -94,20 +94,21 @@ enum AuditAction {
 }
 
 // ──────────────────────────────────────────────
-// USUARIOS DEL SISTEMA (autenticación)
+// USUARIOS DEL SISTEMA — solo CAJERO y ADMIN
+// Los miembros RC no tienen cuenta aquí;
+// usan la app Cinépolis con su número de tarjeta.
 // ──────────────────────────────────────────────
 
 model User {
   id          String   @id @default(uuid())
   email       String   @unique
   password    String
-  role        UserRole @default(CLIENTE)
+  role        UserRole @default(CAJERO)
   isActive    Boolean  @default(true)
   lastLoginAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  member      Member?
   auditLogs   AuditLog[]
   deliveries  MerchandiseDelivery[] @relation("AdminDeliveries")
 
@@ -117,24 +118,23 @@ model User {
 }
 
 // ──────────────────────────────────────────────
-// MIEMBROS (RC-F01, CU-01)
+// MIEMBROS RC (CU-01) — registrados por el cajero
 // ──────────────────────────────────────────────
 
 model Member {
   id           String       @id @default(uuid())
-  userId       String       @unique
   dni          String       @unique @db.VarChar(8)
   firstName    String       @db.VarChar(100)
   lastName     String       @db.VarChar(100)
-  email        String       @unique @db.VarChar(150)
+  email        String?      @unique @db.VarChar(150)
   phone        String?      @db.VarChar(15)
   birthDate    DateTime?    @db.Date
   cardNumber   String       @unique @db.VarChar(16)
   status       MemberStatus @default(ACTIVE)
+  registeredBy String?      @db.VarChar(100)
   registeredAt DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  user           User            @relation(fields: [userId], references: [id])
   membership     Membership?
   transactions   Transaction[]
   redemptions    Redemption[]

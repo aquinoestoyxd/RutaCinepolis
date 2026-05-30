@@ -12,7 +12,7 @@ import type { UpsertConfigDto, CreateAdminUserDto } from './admin.schema';
  *   description: Panel de administración y configuración del sistema (RC-F24)
  */
 export class AdminController {
-  async getAllConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getAllConfig(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const configs = await configService.getAll();
       ResponseHelper.success(res, configs);
@@ -60,7 +60,7 @@ export class AdminController {
     }
   }
 
-  async getStaffUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getStaffUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const users = await adminService.getStaffUsers();
       ResponseHelper.success(res, users);

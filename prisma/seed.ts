@@ -52,10 +52,10 @@ async function main() {
 
   // Estándar
   const benefitStd1 = await prisma.benefit.upsert({
-    where: { id: 'benefit-std-points-redeem' },
+    where: { id: 'b0000001-0000-4000-8000-000000000001' },
     update: {},
     create: {
-      id: 'benefit-std-points-redeem',
+      id: 'b0000001-0000-4000-8000-000000000001',
       name: 'Canje de puntos por entradas',
       description: 'Usa tus puntos para obtener entradas de cine',
       type: BenefitType.POINTS_REDEMPTION,
@@ -66,10 +66,10 @@ async function main() {
 
   // Premium
   const benefitPrem1 = await prisma.benefit.upsert({
-    where: { id: 'benefit-prem-ticket-20' },
+    where: { id: 'b0000002-0000-4000-8000-000000000002' },
     update: {},
     create: {
-      id: 'benefit-prem-ticket-20',
+      id: 'b0000002-0000-4000-8000-000000000002',
       name: '20% de descuento en entradas',
       description: 'Descuento del 20% en cualquier entrada de cine',
       type: BenefitType.DISCOUNT_TICKET,
@@ -80,10 +80,10 @@ async function main() {
   });
 
   const benefitPrem2 = await prisma.benefit.upsert({
-    where: { id: 'benefit-prem-candy-10' },
+    where: { id: 'b0000003-0000-4000-8000-000000000003' },
     update: {},
     create: {
-      id: 'benefit-prem-candy-10',
+      id: 'b0000003-0000-4000-8000-000000000003',
       name: '10% de descuento en dulcería',
       description: 'Descuento del 10% en productos de dulcería',
       type: BenefitType.DISCOUNT_CANDY,
@@ -95,10 +95,10 @@ async function main() {
 
   // Golden
   const benefitGold1 = await prisma.benefit.upsert({
-    where: { id: 'benefit-gold-ticket-30' },
+    where: { id: 'b0000004-0000-4000-8000-000000000004' },
     update: {},
     create: {
-      id: 'benefit-gold-ticket-30',
+      id: 'b0000004-0000-4000-8000-000000000004',
       name: '30% de descuento en entradas',
       description: 'Descuento del 30% en cualquier entrada de cine',
       type: BenefitType.DISCOUNT_TICKET,
@@ -109,10 +109,10 @@ async function main() {
   });
 
   const benefitGold2 = await prisma.benefit.upsert({
-    where: { id: 'benefit-gold-candy-15' },
+    where: { id: 'b0000005-0000-4000-8000-000000000005' },
     update: {},
     create: {
-      id: 'benefit-gold-candy-15',
+      id: 'b0000005-0000-4000-8000-000000000005',
       name: '15% de descuento en dulcería',
       description: 'Descuento del 15% en productos de dulcería',
       type: BenefitType.DISCOUNT_CANDY,
@@ -123,10 +123,10 @@ async function main() {
   });
 
   const benefitGold3 = await prisma.benefit.upsert({
-    where: { id: 'benefit-gold-avant' },
+    where: { id: 'b0000006-0000-4000-8000-000000000006' },
     update: {},
     create: {
-      id: 'benefit-gold-avant',
+      id: 'b0000006-0000-4000-8000-000000000006',
       name: 'Acceso a avant-premières exclusivas',
       description: 'Invitaciones a funciones exclusivas antes del estreno',
       type: BenefitType.AVANT_PREMIERE,
@@ -135,10 +135,10 @@ async function main() {
   });
 
   const benefitGold4 = await prisma.benefit.upsert({
-    where: { id: 'benefit-gold-sala-premium' },
+    where: { id: 'b0000007-0000-4000-8000-000000000007' },
     update: {},
     create: {
-      id: 'benefit-gold-sala-premium',
+      id: 'b0000007-0000-4000-8000-000000000007',
       name: 'Acceso a sala premium',
       description: 'Acceso preferencial a salas premium (IMAX, 4DX)',
       type: BenefitType.PREMIUM_ROOM,
@@ -147,10 +147,10 @@ async function main() {
   });
 
   const benefitGold5 = await prisma.benefit.upsert({
-    where: { id: 'benefit-gold-kit' },
+    where: { id: 'b0000008-0000-4000-8000-000000000008' },
     update: {},
     create: {
-      id: 'benefit-gold-kit',
+      id: 'b0000008-0000-4000-8000-000000000008',
       name: 'Kit de bienvenida Golden',
       description: 'Kit exclusivo con merchandising Cinépolis para miembros Golden',
       type: BenefitType.MERCHANDISE,
@@ -186,10 +186,10 @@ async function main() {
 
   // ── MERCHANDISING ─────────────────────────────────────────────────────────
   await prisma.merchandise.upsert({
-    where: { id: 'merch-kit-golden-2024' },
+    where: { id: 'm0000001-0000-4000-8000-000000000001' },
     update: {},
     create: {
-      id: 'merch-kit-golden-2024',
+      id: 'm0000001-0000-4000-8000-000000000001',
       name: 'Kit Golden Cinépolis 2024',
       description: 'Incluye: taza, vaso, sombrero y voucher de dulcería',
       levelRequired: LevelName.GOLDEN,

@@ -5,13 +5,14 @@ import { NotFoundError } from '../../shared/utils/errorTypes';
 import { logger } from '../../shared/utils/logger';
 import { notificationService } from '../notifications/notification.service';
 import { configService } from '../admin/config.service';
+import { merchandiseService } from '../merchandise/merchandise.service';
 
 export class MembershipService {
   /**
    * Verifica y ejecuta upgrade automático de nivel (RC-F06, CU-05).
    * Criterio: cantidad de visitas alcanza el umbral configurado.
    */
-  async checkAndUpgradeLevel(memberId: string): Promise<boolean> {
+  async checkAndUpgradeLevel(memberId: string, staffId?: string): Promise<boolean> {
     const membership = await prisma.membership.findUnique({
       where: { memberId },
       include: { level: true, member: true },
@@ -66,6 +67,11 @@ export class MembershipService {
       title: `¡Felicidades! Ahora eres miembro ${newLevel.displayName}`,
       message: `Has alcanzado el nivel ${newLevel.displayName} con ${membership.totalVisits} visitas. ¡Disfruta tus nuevos beneficios!`,
     }).catch(err => logger.warn('Error enviando notificación de upgrade', { err }));
+
+    if (targetLevel === LevelName.GOLDEN && staffId) {
+      await merchandiseService.autoDeliverGoldenKit(memberId, staffId)
+        .catch(err => logger.warn('Error en entrega automática de kit Golden en upgrade', { err, memberId }));
+    }
 
     logger.info('Level upgrade ejecutado', {
       memberId,

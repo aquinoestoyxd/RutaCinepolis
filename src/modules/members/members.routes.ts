@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { membersController } from './members.controller';
 import { authenticate } from '../../shared/middleware/authenticate.middleware';
-import { requireAdmin, requireCajero, requireOwnerOrAdmin } from '../../shared/middleware/rbac.middleware';
+import { requireAdmin, requireCajero } from '../../shared/middleware/rbac.middleware';
 import { validateBody, validateParams, validateQuery } from '../../shared/middleware/validate.middleware';
 import {
   registerMemberSchema,
@@ -13,16 +13,17 @@ import {
 
 const router = Router();
 
-router.post('/register', validateBody(registerMemberSchema), membersController.register.bind(membersController));
-
-router.get('/me', authenticate, membersController.getMyProfile.bind(membersController));
-
-router.get(
-  '/card/:cardNumber',
+// Registro solo por cajero (presencial en taquilla)
+router.post(
+  '/register',
   authenticate,
   requireCajero,
-  membersController.findByCard.bind(membersController),
+  validateBody(registerMemberSchema),
+  membersController.register.bind(membersController),
 );
+
+// Consulta por tarjeta — usada por app Cinépolis y cajero
+router.get('/card/:cardNumber', membersController.findByCard.bind(membersController));
 
 router.get(
   '/',
@@ -36,16 +37,15 @@ router.get(
   '/:id',
   authenticate,
   validateParams(memberIdParamSchema),
-  requireOwnerOrAdmin(req => req.user?.memberId),
   membersController.findById.bind(membersController),
 );
 
 router.put(
   '/:id',
   authenticate,
+  requireAdmin,
   validateParams(memberIdParamSchema),
   validateBody(updateMemberSchema),
-  requireOwnerOrAdmin(req => req.user?.memberId),
   membersController.update.bind(membersController),
 );
 

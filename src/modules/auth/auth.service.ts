@@ -18,16 +18,15 @@ interface AuthResult {
     id: string;
     email: string;
     role: UserRole;
-    memberId?: string;
   };
   tokens: TokenPair;
 }
 
 export class AuthService {
   async login(dto: LoginDto, ipAddress?: string): Promise<AuthResult> {
+    // Solo CAJERO y ADMINISTRADOR tienen cuentas en users
     const user = await prisma.user.findUnique({
       where: { email: dto.email },
-      include: { member: { select: { id: true } } },
     });
 
     if (!user || !user.isActive) {
@@ -55,14 +54,13 @@ export class AuthService {
       },
     });
 
-    const tokens = this.generateTokens(user.id, user.email, user.role as UserRole, user.member?.id);
+    const tokens = this.generateTokens(user.id, user.email, user.role as UserRole);
 
     return {
       user: {
         id: user.id,
         email: user.email,
         role: user.role as UserRole,
-        memberId: user.member?.id,
       },
       tokens,
     };
@@ -74,19 +72,15 @@ export class AuthService {
         id: string;
         email: string;
         role: UserRole;
-        memberId?: string;
       };
 
-      const user = await prisma.user.findUnique({
-        where: { id: payload.id },
-        include: { member: { select: { id: true } } },
-      });
+      const user = await prisma.user.findUnique({ where: { id: payload.id } });
 
       if (!user || !user.isActive) {
         throw new UnauthorizedError('Usuario no válido');
       }
 
-      return this.generateTokens(user.id, user.email, user.role as UserRole, user.member?.id);
+      return this.generateTokens(user.id, user.email, user.role as UserRole);
     } catch (error) {
       if (error instanceof UnauthorizedError) throw error;
       throw new UnauthorizedError('Refresh token inválido o expirado');
@@ -129,13 +123,8 @@ export class AuthService {
     });
   }
 
-  private generateTokens(
-    id: string,
-    email: string,
-    role: UserRole,
-    memberId?: string,
-  ): TokenPair {
-    const payload = { id, email, role, memberId };
+  private generateTokens(id: string, email: string, role: UserRole): TokenPair {
+    const payload = { id, email, role };
 
     const accessToken = jwt.sign(payload, env.JWT_SECRET, {
       expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],

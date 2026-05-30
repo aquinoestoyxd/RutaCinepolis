@@ -5,6 +5,10 @@ import { NotFoundError, BusinessRuleError } from '../../shared/utils/errorTypes'
 import { notificationService } from '../notifications/notification.service';
 import { logger } from '../../shared/utils/logger';
 
+export type AutoDeliverResult =
+  | { delivered: true; merchandiseName: string; newStock: number }
+  | { delivered: false; reason: 'no_stock' | 'no_kit' | 'already_received' };
+
 export interface DeliverMerchandiseParams {
   merchandiseId: string;
   memberId: string;
@@ -103,6 +107,31 @@ export class MerchandiseService {
     }).catch(err => logger.warn('Error notificación merchandising', { err }));
 
     return delivery;
+  }
+
+  /**
+   * Entrega automática del kit Golden al registrar o subir de nivel.
+   * Solo entrega si: hay kit activo, hay stock, y el miembro no lo recibió ya.
+   */
+  async autoDeliverGoldenKit(memberId: string, staffId: string): Promise<AutoDeliverResult> {
+    const kit = await prisma.merchandise.findFirst({
+      where: { levelRequired: LevelName.GOLDEN, isActive: true },
+      orderBy: { stockCurrent: 'desc' },
+    });
+
+    if (!kit) return { delivered: false, reason: 'no_kit' };
+    if (kit.stockCurrent <= 0) return { delivered: false, reason: 'no_stock' };
+
+    const alreadyReceived = await prisma.merchandiseDelivery.findFirst({
+      where: { memberId, merchandiseId: kit.id },
+    });
+    if (alreadyReceived) return { delivered: false, reason: 'already_received' };
+
+    await this.deliver({ merchandiseId: kit.id, memberId, adminId: staffId });
+
+    logger.info('Kit Golden entregado automáticamente', { memberId, kitId: kit.id });
+
+    return { delivered: true, merchandiseName: kit.name, newStock: kit.stockCurrent - 1 };
   }
 
   async getDeliveryHistory(memberId: string) {

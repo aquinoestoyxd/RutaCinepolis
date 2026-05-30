@@ -1,12 +1,17 @@
 import rateLimit from 'express-rate-limit';
-import { env } from '../../config/env';
+import { env, isProduction } from '../../config/env';
 import { ResponseHelper } from '../utils/apiResponse';
+
+// Rate limiters are only enforced in production.
+// In development they skip to avoid blocking the admin during testing.
+const skipInDev = () => !isProduction;
 
 export const generalLimiter = rateLimit({
   windowMs: env.RATE_LIMIT_WINDOW_MS,
   max: env.RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInDev,
   handler: (_req, res) => {
     ResponseHelper.error(
       res,
@@ -16,6 +21,7 @@ export const generalLimiter = rateLimit({
   },
 });
 
+// authLimiter siempre activo: protege contra fuerza bruta en login.
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -36,6 +42,7 @@ export const posLimiter = rateLimit({
   max: env.POS_RATE_LIMIT_MAX,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInDev,
   handler: (_req, res) => {
     ResponseHelper.error(
       res,
@@ -47,9 +54,10 @@ export const posLimiter = rateLimit({
 
 export const reportLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 30,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipInDev,
   handler: (_req, res) => {
     ResponseHelper.error(
       res,

@@ -1,5 +1,5 @@
 import { prisma } from '../../config/database';
-import { LevelName, MemberStatus, TransactionStatus, TransactionType } from '../../shared/types/enums';
+import { LevelName, TransactionStatus, TransactionType } from '../../shared/types/enums';
 
 export interface DateRangeFilter {
   from?: Date;
@@ -9,14 +9,13 @@ export interface DateRangeFilter {
 export class ReportsService {
   /**
    * Dashboard KPI principal (RC-F09).
-   * Diseñado para responder en < 5 segundos usando agregaciones paralelas.
    */
   async getKpiDashboard(range: DateRangeFilter) {
     const dateFilter = this.buildDateFilter(range);
 
     const [
       totalMembers,
-      membersByLevel,
+      ,
       membersByStatus,
       transactionSummary,
       newMembersThisPeriod,
@@ -29,7 +28,7 @@ export class ReportsService {
         by: ['levelId'],
         _count: { _all: true },
         where: dateFilter ? { member: { registeredAt: dateFilter } } : undefined,
-      }),
+      }) as Promise<unknown>,
 
       prisma.member.groupBy({
         by: ['status'],
@@ -54,12 +53,10 @@ export class ReportsService {
       prisma.membership.findMany({
         take: 10,
         orderBy: { totalSpent: 'desc' },
-        include: { member: { select: { firstName: true, lastName: true, cardNumber: true } }, level: true },
-        select: {
-          totalSpent: true,
-          totalVisits: true,
-          points: true,
-          member: true,
+        include: {
+          member: {
+            select: { firstName: true, lastName: true, cardNumber: true },
+          },
           level: true,
         },
       }),
@@ -84,7 +81,7 @@ export class ReportsService {
       topSpenders: topSpenders.map(m => ({
         member: `${m.member.firstName} ${m.member.lastName}`,
         cardNumber: m.member.cardNumber,
-        level: m.level.displayName,
+        level: m.level.name,
         totalSpent: Number(m.totalSpent),
         totalVisits: m.totalVisits,
         points: m.points,
@@ -113,37 +110,57 @@ export class ReportsService {
   async getTransactionReport(range: DateRangeFilter) {
     const dateFilter = this.buildDateFilter(range);
 
-    const [byType, byOrigin, dailyVolume] = await Promise.all([
+    const whereCompleted = {
+      status: TransactionStatus.COMPLETED,
+      ...(dateFilter ? { createdAt: dateFilter } : {}),
+    };
+
+    const [byType, byOrigin, rawTransactions] = await Promise.all([
       prisma.transaction.groupBy({
         by: ['type'],
-        where: {
-          status: TransactionStatus.COMPLETED,
-          ...(dateFilter ? { createdAt: dateFilter } : {}),
-        },
+        where: whereCompleted,
         _count: { _all: true },
         _sum: { amount: true, pointsEarned: true },
       }),
 
       prisma.transaction.groupBy({
         by: ['origin'],
-        where: {
-          status: TransactionStatus.COMPLETED,
-          ...(dateFilter ? { createdAt: dateFilter } : {}),
-        },
+        where: whereCompleted,
         _count: { _all: true },
         _sum: { amount: true },
       }),
 
-      prisma.$queryRaw<Array<{ date: Date; count: bigint; total: number }>>`
-        SELECT DATE(created_at) as date, COUNT(*) as count, SUM(amount) as total
-        FROM transactions
-        WHERE status = 'COMPLETED'
-        ${dateFilter?.gte ? prisma.$queryRaw`AND created_at >= ${dateFilter.gte}` : prisma.$queryRaw``}
-        ${dateFilter?.lte ? prisma.$queryRaw`AND created_at <= ${dateFilter.lte}` : prisma.$queryRaw``}
-        GROUP BY DATE(created_at)
-        ORDER BY date ASC
-      `,
+      // En lugar de $queryRaw, traemos solo los campos necesarios
+      // y agrupamos por día en memoria. El volumen diario no suele
+      // ser masivo; si crece se puede optimizar con una vista en BD.
+      prisma.transaction.findMany({
+        where: whereCompleted,
+        select: {
+          createdAt: true,
+          amount: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
     ]);
+
+    // Agrupar por día en memoria
+    const dayMap = new Map<string, { count: number; total: number }>();
+    for (const tx of rawTransactions) {
+      const key = tx.createdAt.toISOString().split('T')[0]; // "2026-05-30"
+      const prev = dayMap.get(key) ?? { count: 0, total: 0 };
+      dayMap.set(key, {
+        count: prev.count + 1,
+        total: prev.total + Number(tx.amount),
+      });
+    }
+
+    const dailyVolume = Array.from(dayMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, v]) => ({
+        date,
+        count: v.count,
+        total: v.total,
+      }));
 
     return {
       byType: byType.map(t => ({
@@ -157,11 +174,7 @@ export class ReportsService {
         count: o._count._all,
         totalAmount: Number(o._sum.amount ?? 0),
       })),
-      dailyVolume: dailyVolume.map(d => ({
-        date: d.date,
-        count: Number(d.count),
-        total: Number(d.total),
-      })),
+      dailyVolume,
     };
   }
 
@@ -186,7 +199,9 @@ export class ReportsService {
   }
 
   private async getLevelDistribution() {
-    const levels = await prisma.level.findMany({ select: { id: true, name: true, displayName: true } });
+    const levels = await prisma.level.findMany({
+      select: { id: true, name: true, displayName: true },
+    });
     const total = await prisma.member.count();
 
     const data = await Promise.all(

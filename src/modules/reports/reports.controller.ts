@@ -45,7 +45,7 @@ export class ReportsController {
     }
   }
 
-  async getMerchandiseStock(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getMerchandiseStock(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const data = await reportsService.getMerchandiseStockReport();
       ResponseHelper.success(res, data);

@@ -1,60 +1,52 @@
-import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database';
-import { env } from '../../config/env';
-import { UserRole, LevelName, AuditAction, NotificationType, MemberStatus } from '../../shared/types/enums';
+import { LevelName, AuditAction, NotificationType } from '../../shared/types/enums';
 import { ConflictError, NotFoundError } from '../../shared/utils/errorTypes';
 import { generateCardNumber } from '../../shared/utils/cardGenerator';
 import { getPagination, buildOrderBy } from '../../shared/utils/pagination';
+import { logger } from '../../shared/utils/logger';
 import { notificationService } from '../notifications/notification.service';
+import { merchandiseService } from '../merchandise/merchandise.service';
 import type { RegisterMemberDto, UpdateMemberDto, MemberStatusDto, SearchMembersQuery } from './members.schema';
 import type { Request } from 'express';
 
 export class MembersService {
-  async register(dto: RegisterMemberDto) {
-    const [existingDni, existingEmail] = await Promise.all([
-      prisma.member.findUnique({ where: { dni: dto.dni } }),
-      prisma.user.findUnique({ where: { email: dto.email } }),
-    ]);
-
+  /**
+   * El cajero registra al miembro presencialmente y elige el nivel (CU-01).
+   * No se crea cuenta de usuario — el miembro usa la app Cinépolis con su tarjeta.
+   */
+  async register(dto: RegisterMemberDto, cajeroId: string, cajeroEmail: string) {
+    const existingDni = await prisma.member.findUnique({ where: { dni: dto.dni } });
     if (existingDni) throw new ConflictError('El DNI ya está registrado');
-    if (existingEmail) throw new ConflictError('El correo electrónico ya está registrado');
 
-    const [estandarLevel] = await Promise.all([
-      prisma.level.findUnique({ where: { name: LevelName.ESTANDAR } }),
-    ]);
-    if (!estandarLevel) throw new Error('Nivel Estándar no configurado. Ejecute el seed.');
+    if (dto.email) {
+      const existingEmail = await prisma.member.findUnique({ where: { email: dto.email } });
+      if (existingEmail) throw new ConflictError('El correo electrónico ya está registrado');
+    }
 
-    const hashedPassword = await bcrypt.hash(dto.password, env.BCRYPT_ROUNDS);
+    const level = await prisma.level.findUnique({ where: { id: dto.levelId } });
+    if (!level) throw new NotFoundError('Nivel de membresía');
+
     const cardNumber = await this.generateUniqueCardNumber();
 
     const result = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          email: dto.email,
-          password: hashedPassword,
-          role: UserRole.CLIENTE,
-        },
-      });
-
       const member = await tx.member.create({
         data: {
-          userId: user.id,
           dni: dto.dni,
           firstName: dto.firstName,
           lastName: dto.lastName,
-          email: dto.email,
-          phone: dto.phone,
-          birthDate: dto.birthDate ? new Date(dto.birthDate) : undefined,
+          ...(dto.email ? { email: dto.email } : {}),
+          ...(dto.phone ? { phone: dto.phone } : {}),
+          ...(dto.birthDate ? { birthDate: new Date(dto.birthDate) } : {}),
           cardNumber,
+          registeredBy: cajeroEmail,
         },
-        include: { membership: { include: { level: true } } },
       });
 
       await tx.membership.create({
         data: {
           memberId: member.id,
-          levelId: estandarLevel.id,
+          levelId: dto.levelId,
           points: 0,
           totalVisits: 0,
           totalSpent: 0,
@@ -63,11 +55,11 @@ export class MembersService {
 
       await tx.auditLog.create({
         data: {
-          userId: user.id,
+          userId: cajeroId,
           action: AuditAction.CREATE,
           entity: 'Member',
           entityId: member.id,
-          newValue: { dni: dto.dni, email: dto.email },
+          newValue: { dni: dto.dni, level: level.name, registeredBy: cajeroEmail } as Prisma.InputJsonValue,
         },
       });
 
@@ -76,9 +68,14 @@ export class MembersService {
 
     await notificationService.create(result.id, {
       type: NotificationType.WELCOME,
-      title: '¡Bienvenido a Ruta Cinépolis!',
-      message: `Hola ${dto.firstName}, tu número de tarjeta es ${cardNumber}. ¡Disfruta tus beneficios!`,
-    });
+      title: `¡Bienvenido a Ruta Cinépolis, ${dto.firstName}!`,
+      message: `Tu tarjeta RC es ${cardNumber}. Nivel: ${level.displayName}. ¡Disfruta tus beneficios!`,
+    }).catch(() => {});
+
+    if (level.name === LevelName.GOLDEN) {
+      await merchandiseService.autoDeliverGoldenKit(result.id, cajeroId)
+        .catch(err => logger.warn('Error en entrega automática de kit Golden al registrar', { err, memberId: result.id }));
+    }
 
     return this.findById(result.id);
   }
@@ -90,9 +87,7 @@ export class MembersService {
         membership: {
           include: {
             level: {
-              include: {
-                levelBenefits: { include: { benefit: true } },
-              },
+              include: { levelBenefits: { include: { benefit: true } } },
             },
           },
         },
@@ -105,6 +100,15 @@ export class MembersService {
   async findByCardNumber(cardNumber: string) {
     const member = await prisma.member.findUnique({
       where: { cardNumber },
+      include: { membership: { include: { level: true } } },
+    });
+    if (!member) throw new NotFoundError('Miembro');
+    return member;
+  }
+
+  async findByDni(dni: string) {
+    const member = await prisma.member.findUnique({
+      where: { dni },
       include: { membership: { include: { level: true } } },
     });
     if (!member) throw new NotFoundError('Miembro');
@@ -137,10 +141,7 @@ export class MembersService {
 
     const [members, total] = await Promise.all([
       prisma.member.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy,
+        where, skip, take: limit, orderBy,
         include: { membership: { include: { level: true } } },
       }),
       prisma.member.count({ where }),
@@ -169,7 +170,7 @@ export class MembersService {
           action: AuditAction.UPDATE,
           entity: 'Member',
           entityId: id,
-          oldValue: { firstName: member.firstName, lastName: member.lastName },
+          oldValue: { firstName: member.firstName, lastName: member.lastName } as Prisma.InputJsonValue,
           newValue: dto as Prisma.InputJsonValue,
         },
       });
@@ -181,45 +182,32 @@ export class MembersService {
   }
 
   async updateStatus(id: string, dto: MemberStatusDto, adminId: string) {
-    const member = await prisma.member.findUnique({
-      where: { id },
-      include: { user: true },
-    });
+    const member = await prisma.member.findUnique({ where: { id } });
     if (!member) throw new NotFoundError('Miembro');
 
     await prisma.$transaction(async (tx) => {
-      await tx.member.update({
-        where: { id },
-        data: { status: dto.status },
-      });
-
-      await tx.user.update({
-        where: { id: member.userId },
-        data: { isActive: dto.status === MemberStatus.ACTIVE },
-      });
-
+      await tx.member.update({ where: { id }, data: { status: dto.status } });
       await tx.auditLog.create({
         data: {
           userId: adminId,
           action: AuditAction.UPDATE,
           entity: 'Member',
           entityId: id,
-          oldValue: { status: member.status },
-          newValue: { status: dto.status, reason: dto.reason },
+          oldValue: { status: member.status } as Prisma.InputJsonValue,
+          newValue: { status: dto.status, reason: dto.reason } as Prisma.InputJsonValue,
         },
       });
     });
   }
 
   private async generateUniqueCardNumber(): Promise<string> {
-    let cardNumber: string;
     let attempts = 0;
-    do {
-      cardNumber = generateCardNumber();
+    while (attempts < 10) {
+      const cardNumber = generateCardNumber();
       const existing = await prisma.member.findUnique({ where: { cardNumber } });
       if (!existing) return cardNumber;
       attempts++;
-    } while (attempts < 10);
+    }
     throw new Error('No se pudo generar un número de tarjeta único');
   }
 }
