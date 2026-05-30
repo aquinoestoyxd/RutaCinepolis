@@ -25,6 +25,9 @@ router.post(
 // Consulta por tarjeta — usada por app Cinépolis y cajero
 router.get('/card/:cardNumber', membersController.findByCard.bind(membersController));
 
+// Dashboard consolidado para el panel de miembros
+router.get('/dashboard/:cardNumber', membersController.getDashboard.bind(membersController));
+
 router.get(
   '/',
   authenticate,

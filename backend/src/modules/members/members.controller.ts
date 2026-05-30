@@ -42,6 +42,15 @@ export class MembersController {
     }
   }
 
+  async getDashboard(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const data = await membersService.getDashboardData(req.params.cardNumber);
+      ResponseHelper.success(res, data);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const dto = req.body as UpdateMemberDto;

@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 
 import Login from './pages/Login.jsx'
+import MemberLogin from './pages/member/Login.jsx'
+import MemberDashboard from './pages/member/Dashboard.jsx'
 
 // Cajero
 import CajeroLayout from './components/Layout/CajeroLayout.jsx'
@@ -24,17 +26,26 @@ import Auditoria from './pages/admin/Auditoria.jsx'
 function ProtectedRoute({ children, allowedRoles }) {
   const { user, loading } = useAuth()
   if (loading) return <div className="flex items-center justify-center h-screen">Cargando...</div>
-  if (!user) return <Navigate to="/login" replace />
-  if (allowedRoles && !allowedRoles.includes(user.role)) return <Navigate to="/login" replace />
+  
+  if (!user) {
+    const isMemberPath = window.location.pathname.startsWith('/member')
+    return <Navigate to={isMemberPath ? "/member/login" : "/login"} replace />
+  }
+  
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/" replace />
+  }
   return children
 }
 
 function RoleRedirect() {
   const { user, loading } = useAuth()
   if (loading) return null
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/member/login" replace />
   if (user.role === 'ADMINISTRADOR') return <Navigate to="/admin/dashboard" replace />
-  return <Navigate to="/cajero/buscar" replace />
+  if (user.role === 'CAJERO') return <Navigate to="/cajero/buscar" replace />
+  if (user.role === 'CLIENTE') return <Navigate to="/member/dashboard" replace />
+  return <Navigate to="/member/login" replace />
 }
 
 export default function App() {
@@ -43,6 +54,12 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/member/login" element={<MemberLogin />} />
+          <Route path="/member/dashboard" element={
+            <ProtectedRoute allowedRoles={['CLIENTE']}>
+              <MemberDashboard />
+            </ProtectedRoute>
+          } />
           <Route path="/" element={<RoleRedirect />} />
 
           {/* CAJERO */}

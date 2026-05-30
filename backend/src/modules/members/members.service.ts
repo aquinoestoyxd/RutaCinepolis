@@ -200,6 +200,64 @@ export class MembersService {
     });
   }
 
+  async getDashboardData(cardNumber: string) {
+    const member = await prisma.member.findUnique({
+      where: { cardNumber },
+      include: {
+        membership: {
+          include: {
+            level: {
+              include: {
+                levelBenefits: {
+                  include: { benefit: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!member) throw new NotFoundError('Miembro con esta tarjeta no encontrado');
+
+    const membership = member.membership!;
+    const level = membership.level;
+
+    const today = new Date();
+    const defaultEndDate = new Date(today);
+    defaultEndDate.setFullYear(defaultEndDate.getFullYear() + 1);
+
+    // Mapear beneficios a la estructura que espera el frontend de Yosselin
+    const benefits = level.levelBenefits.map(lb => ({
+      id: lb.benefit.id,
+      level: level.name.toLowerCase(),
+      title: lb.benefit.name,
+      description: lb.benefit.description,
+      startDate: lb.benefit.validFrom?.toISOString() ?? today.toISOString(),
+      endDate: lb.benefit.validUntil?.toISOString() ?? defaultEndDate.toISOString(),
+      active: lb.benefit.isActive,
+    }));
+
+    // En un sistema real, las promociones podrían venir de otra tabla, 
+    // pero para este MVP usamos los beneficios como promociones si son de tipo descuento.
+    const promotions = benefits; 
+
+    return {
+      user: {
+        dni: member.dni,
+        cardNumber: member.cardNumber,
+        name: member.firstName,
+        lastName: member.lastName,
+        visits: membership.totalVisits,
+        points: membership.points,
+        level: level.name.toLowerCase(),
+        email: member.email,
+      },
+      benefits,
+      promotions,
+    };
+  }
+
   private async generateUniqueCardNumber(): Promise<string> {
     let attempts = 0;
     while (attempts < 10) {
