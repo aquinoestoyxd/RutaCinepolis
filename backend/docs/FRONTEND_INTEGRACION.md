@@ -1,334 +1,287 @@
-# Integración con el Frontend
+# Integración Frontend ↔ Backend
 
-Guía para conectar cualquier aplicación frontend (React, Vue, HTML+JS) con el backend de Ruta Cinépolis.
-
----
-
-## URL base
-
-```
-Desarrollo local:   http://localhost:3001/api/v1
-Producción AWS:     https://api.rutacinepolis.com.pe/api/v1  (pendiente configurar)
-```
+Documentación de cómo el panel web (React + Vite) consume la API REST del backend.
 
 ---
 
-## Autenticación
-
-El backend usa **JWT (JSON Web Tokens)**. El flujo es:
+## Arquitectura de comunicación
 
 ```
-1. Frontend hace POST /auth/login con email y password
-2. Backend devuelve accessToken (dura 8h) y refreshToken (dura 7d)
-3. Frontend guarda los tokens (localStorage o memoria)
-4. Frontend envía el accessToken en cada petición protegida
-5. Cuando el accessToken expira, usa refreshToken para obtener uno nuevo
+frontend/           (puerto 5173 en desarrollo)
+  └── Vite proxy
+        └── /api/* → http://localhost:3001/api/v1/*   (backend)
 ```
 
-### Guardar el token (ejemplo en JavaScript)
-
-```javascript
-// Después del login
-const { data } = await login(email, password)
-localStorage.setItem('accessToken', data.tokens.accessToken)
-localStorage.setItem('refreshToken', data.tokens.refreshToken)
-```
-
-### Enviar el token en cada petición
-
-```javascript
-headers: {
-  'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
-  'Content-Type': 'application/json'
-}
-```
+El proxy de Vite (`frontend/vite.config.js`) redirige todas las peticiones `/api` al backend, eliminando la necesidad de configurar CORS en desarrollo. En producción ambos servicios se sirven desde el mismo dominio o se configura el origen en `CORS_ORIGINS`.
 
 ---
 
-## Configuración base recomendada
+## Cliente HTTP — `frontend/src/api/`
 
-### Con fetch nativo
+### `axios.js`
+
+Instancia base de axios con:
+- `baseURL: /api/v1` — todas las rutas son relativas a este prefijo
+- Interceptor de request: adjunta `Authorization: Bearer <token>` en cada petición usando la clave `rc_token` de localStorage
+- Interceptor de response: si recibe `401`, intenta renovar el token con `rc_refresh`. Si el refresh falla, limpia localStorage y redirige a `/login`
 
 ```javascript
-const API_URL = 'http://localhost:3001/api/v1'
-
-function getHeaders() {
-  const token = localStorage.getItem('accessToken')
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-  }
-}
-
-async function apiGet(path) {
-  const res = await fetch(`${API_URL}${path}`, { headers: getHeaders() })
-  const json = await res.json()
-  if (!json.success) throw new Error(json.error)
-  return json.data
-}
-
-async function apiPost(path, body) {
-  const res = await fetch(`${API_URL}${path}`, {
-    method: 'POST',
-    headers: getHeaders(),
-    body: JSON.stringify(body)
-  })
-  const json = await res.json()
-  if (!json.success) throw new Error(json.error)
-  return json.data
-}
+// Claves usadas en localStorage
+rc_token    // accessToken JWT (dura 8h)
+rc_refresh  // refreshToken JWT (dura 7d)
+rc_user     // objeto { id, email, role } del usuario autenticado
 ```
 
-### Con Axios (recomendado para proyectos grandes)
+### `index.js`
+
+Funciones exportadas agrupadas por dominio. Convención de respuesta:
+- Endpoints que devuelven un item → `r.data.data` (extrae el objeto directo)
+- Endpoints paginados → `r.data` (incluye `data[]` + `meta { page, limit, total, totalPages }`)
+
+---
+
+## Autenticación y sesión — `AuthContext.jsx`
 
 ```javascript
-import axios from 'axios'
+const { user, login, logout, loading } = useAuth()
+```
 
-const api = axios.create({
-  baseURL: 'http://localhost:3001/api/v1',
-  headers: { 'Content-Type': 'application/json' }
-})
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `user` | `{ id, email, role }` o `null` | Usuario autenticado. `null` si no hay sesión. |
+| `login(email, password)` | `async → user` | Llama `POST /auth/login`, guarda tokens y devuelve el objeto usuario. |
+| `logout()` | `async → void` | Llama `POST /auth/logout`, limpia localStorage y resetea estado. |
+| `loading` | `boolean` | `true` mientras se lee la sesión guardada al cargar la app. |
 
-// Interceptor: agrega el token automáticamente a cada petición
-api.interceptors.request.use(config => {
-  const token = localStorage.getItem('accessToken')
-  if (token) config.headers.Authorization = `Bearer ${token}`
-  return config
-})
-
-// Interceptor: si el token expiró (401), intenta renovarlo
-api.interceptors.response.use(
-  response => response,
-  async error => {
-    if (error.response?.status === 401) {
-      try {
-        const refreshToken = localStorage.getItem('refreshToken')
-        const { data } = await axios.post('/auth/refresh', { refreshToken })
-        localStorage.setItem('accessToken', data.data.accessToken)
-        error.config.headers.Authorization = `Bearer ${data.data.accessToken}`
-        return api(error.config)
-      } catch {
-        localStorage.clear()
-        window.location.href = '/login'
-      }
-    }
-    return Promise.reject(error)
-  }
-)
-
-export default api
+**Flujo de login:**
+```
+Login.jsx → useAuth().login() → POST /auth/login
+                              → guarda rc_token, rc_refresh, rc_user en localStorage
+                              → redirige por rol:
+                                  ADMINISTRADOR → /admin/dashboard
+                                  CAJERO        → /cajero/buscar
 ```
 
 ---
 
-## Pantallas y qué endpoints usan
+## Rutas protegidas — `App.jsx`
 
-### Portal del Miembro (CLIENTE)
-
-#### Pantalla: Login
-```javascript
-const login = async (email, password) => {
-  const { data } = await api.post('/auth/login', { email, password })
-  localStorage.setItem('accessToken', data.tokens.accessToken)
-  localStorage.setItem('refreshToken', data.tokens.refreshToken)
-  return data.user
-}
 ```
-
-#### Pantalla: Mi Perfil RC
-```javascript
-// Datos del perfil
-const perfil = await api.get('/members/me')
-
-// Nivel y progreso hacia el siguiente nivel
-const membresia = await api.get('/membership/my')
-// membresia.progress.visitsToNextLevel → cuántas visitas faltan
-// membresia.progress.nextLevel → "GOLDEN"
-
-// Saldo de puntos
-const balance = await api.get('/points/my-balance')
-// balance.current → puntos disponibles
-```
-
-#### Pantalla: Mis Beneficios
-```javascript
-// Beneficios disponibles para el nivel del miembro
-const benefits = await api.get('/benefits?levelName=PREMIUM')
-```
-
-#### Pantalla: Historial
-```javascript
-// Historial de compras y puntos
-const historial = await api.get('/points/my-history?page=1&limit=10')
-
-// Historial de canjes
-const canjes = await api.get('/redemptions/my-history')
-```
-
-#### Acción: Canjear beneficio
-```javascript
-const canjear = async (memberId, benefitId) => {
-  const { data } = await api.post('/redemptions', { memberId, benefitId })
-  return data // { transaction, redemption }
-}
-```
-
-#### Pantalla: Notificaciones
-```javascript
-// Ver notificaciones no leídas
-const notifs = await api.get('/notifications?unread=true')
-
-// Marcar como leída
-await api.patch(`/notifications/${id}/read`)
-
-// Cantidad de no leídas (para el badge)
-const { count } = await api.get('/notifications/unread-count')
+/login                     → Login.jsx (público)
+/                          → redirige según rol
+/cajero/*                  → requiere rol CAJERO o ADMINISTRADOR
+  buscar                   → BuscarMiembro.jsx
+  registrar                → RegistrarMiembro.jsx
+  compra                   → RegistrarCompra.jsx
+  canje                    → AplicarCanje.jsx
+/admin/*                   → requiere rol ADMINISTRADOR
+  dashboard                → AdminDashboard.jsx
+  miembros                 → Miembros.jsx
+  beneficios               → Beneficios.jsx
+  reportes                 → Reportes.jsx
+  staff                    → Staff.jsx
+  merchandising            → Merchandising.jsx
+  configuracion            → Configuracion.jsx
+  auditoria                → Auditoria.jsx
 ```
 
 ---
 
-### Interfaz del Cajero (POS)
+## Páginas del cajero y endpoints que usan
 
-#### Identificar miembro por tarjeta
+### BuscarMiembro — Identificar cliente por tarjeta
+
 ```javascript
-const buscarMiembro = async (cardNumber) => {
-  const { data } = await api.post('/pos/lookup', { cardNumber })
-  // data.firstName, data.lastName, data.membership.level.displayName
-  // data.membership.points
-  return data
-}
+// POST /pos/lookup — responde en < 2s
+const data = await posLookup(cardNumber)
+// data: { id, firstName, lastName, cardNumber, status, membership: { points, totalVisits, level } }
 ```
 
-#### Registrar compra
+> `posLookup` devuelve el miembro aunque esté inactivo o suspendido. La página muestra un banner de aviso y deshabilita las acciones rápidas. La restricción de activo aplica solo al procesar una transacción.
+
+### RegistrarMiembro — Dar de alta al cliente
+
 ```javascript
-const registrarCompra = async (cardNumber, amount, tipo) => {
-  const { data } = await api.post('/pos/transaction', {
-    cardNumber,
-    posId: 'POS-LIMA-01',         // identificador del terminal
-    amount,                        // monto en soles
-    transactionType: tipo          // 'PURCHASE_TICKET' o 'PURCHASE_CANDY'
-  })
-  // data.pointsEarned → puntos acreditados
-  // data.newBalance   → saldo nuevo del miembro
-  // data.levelUpgraded → true si subió de nivel
-  return data
-}
+// GET /membership/levels (público) — carga los niveles para el selector
+const levels = await getLevels()
+
+// POST /members/register (requiere CAJERO)
+const member = await registerMember({ dni, firstName, lastName, email?, phone?, birthDate?, levelId })
+// Si levelId apunta al nivel Golden, el backend entrega automáticamente el kit de bienvenida
 ```
 
-#### Sincronización offline
+La respuesta incluye el `cardNumber` generado para entregarlo físicamente al cliente.
+
+### RegistrarCompra — Procesar venta en taquilla
+
 ```javascript
-// Cuando vuelve la conexión, enviar las transacciones guardadas localmente
-const sincronizar = async (transaccionesLocales) => {
-  const { data } = await api.post('/pos/sync', {
-    posId: 'POS-LIMA-01',
-    transactions: transaccionesLocales
-  })
-  // data.succeeded → cuántas se procesaron bien
-  // data.failed    → cuántas fallaron
-  return data
-}
+// Paso 1: identificar
+const member = await posLookup(cardNumber)
+
+// Paso 2: registrar compra
+const result = await posTransaction({ cardNumber, amount, transactionType, posId })
+// result.pointsEarned  → puntos acreditados en esta compra
+// result.newBalance    → saldo nuevo del miembro
+// result.levelUpgraded → true si la compra lo subió de nivel
 ```
+
+`transactionType` acepta: `PURCHASE_TICKET` (entrada) o `PURCHASE_CANDY` (dulcería).
+
+Preview en UI: el frontend calcula localmente el descuento y los puntos estimados antes de confirmar, basándose en los valores fijos del nivel. El valor definitivo lo devuelve el backend.
+
+### AplicarCanje — Canjear un beneficio
+
+```javascript
+// GET /benefits?levelName=GOLDEN — beneficios disponibles para el nivel del miembro
+const benefits = await getBenefits({ levelName })
+
+// POST /redemptions
+const result = await redeemBenefit({ memberId, benefitId, posId })
+```
+
+La UI filtra los beneficios con `pointsCost > points` del miembro y los muestra deshabilitados.
 
 ---
 
-### Panel de Administración (ADMIN)
+## Páginas del admin y endpoints que usan
 
-#### Dashboard principal
+### AdminDashboard — KPIs y gráficas
+
 ```javascript
-// Todos los KPIs (responde en < 5 segundos)
-const kpis = await api.get('/reports/kpi?from=2025-01-01&to=2025-06-30')
-// kpis.summary.totalMembers
-// kpis.levelDistribution
-// kpis.topSpenders
+// GET /reports/kpi → summary, levelDistribution, topSpenders
+const kpi = await getKpi({})
 
-// Gráfica de crecimiento mensual
-const crecimiento = await api.get('/reports/member-growth?year=2025')
+// GET /reports/member-growth?year=2026
+const growth = await getMemberGrowth(year)
 ```
 
-#### Configurar reglas de negocio
-```javascript
-// Ver configuración actual
-const config = await api.get('/admin/config')
+`topSpenders[].level` devuelve el enum (`ESTANDAR`, `PREMIUM`, `GOLDEN`) para el lookup de colores.
 
-// Cambiar tasa de puntos
-await api.put('/admin/config/POINTS_RATE', {
-  value: '0.08',
-  description: 'Campaña de julio: 8%'
-})
+### Miembros — Gestión de la base de miembros
+
+```javascript
+// GET /members?search=&status=&levelName=&page=&limit=20
+const res = await getMembers({ search, status, levelName, page })
+// res.data    → array de miembros
+// res.meta    → { page, limit, total, totalPages }
+
+// PATCH /members/:id/status
+await updateMemberStatus(id, status)  // status: ACTIVE | INACTIVE | SUSPENDED
+
+// POST /points/:memberId/adjust
+await adjustPoints(memberId, delta, reason)
 ```
 
-#### Gestionar staff
+### Reportes — Transacciones
+
 ```javascript
-// Crear cajero nuevo
-await api.post('/admin/staff', {
-  email: 'cajero2@cinepolis.com.pe',
-  password: 'Cajero123!',
-  role: 'CAJERO'
-})
+// GET /reports/transactions?from=&to=
+const data = await getTransactionReport({ from, to })
+// data.byType     → array { type, count, totalAmount }
+// data.byOrigin   → array { origin, count, totalAmount }
+// data.dailyVolume → array { date, count, total }
 ```
+
+### Staff — Gestión de usuarios
+
+```javascript
+// GET /admin/staff
+const staff = await getStaff()
+
+// POST /admin/staff
+await createStaff({ email, password, role })  // role: CAJERO | ADMINISTRADOR
+
+// PATCH /admin/staff/:userId/toggle-status
+await toggleStaffStatus(userId)
+```
+
+### Configuración — Reglas de negocio
+
+```javascript
+// GET /admin/config
+const configs = await getConfig()
+
+// PUT /admin/config/:key
+await upsertConfig(key, value, description?)
+```
+
+Parámetros editables: `POINTS_RATE`, `PREMIUM_VISITS_THRESHOLD`, `GOLDEN_VISITS_THRESHOLD`, `DISCOUNT_TICKET_PREMIUM`, `DISCOUNT_CANDY_PREMIUM`, `DISCOUNT_TICKET_GOLDEN`, `DISCOUNT_CANDY_GOLDEN`.
+
+### Auditoría — Actividad del sistema
+
+```javascript
+// GET /admin/audit-logs?action=&entity=&from=&to=&page=&limit=20
+const result = await getAuditLogs(params)
+// result.data  → array de logs con { action, entity, entityId, oldValue, newValue, user, createdAt }
+// result.meta  → paginación
+```
+
+La página muestra un feed de actividad con descripciones legibles, filtros por tipo de acción (chips) y panel diff antes/después expandible.
+
+### Merchandising — Stock de kits Golden
+
+```javascript
+// GET /merchandise
+const items = await getMerchandise()
+
+// PATCH /merchandise/:id/stock  → ingresar o retirar stock
+await updateStock(id, delta)  // delta positivo: ingreso, negativo: retiro
+```
+
+> El stock se descuenta automáticamente al registrar o subir a nivel Golden. El endpoint `POST /merchandise/deliver` está disponible para entregas manuales de reemplazo.
 
 ---
 
-## Manejo de errores en el frontend
+## Manejo de errores
 
-El backend siempre devuelve el mismo formato de error:
+El backend siempre devuelve el mismo formato:
 
 ```json
 {
   "success": false,
   "error": "El DNI ya está registrado",
   "errors": {
-    "email": ["El correo ya está en uso"]
+    "campo": ["descripción del error de validación"]
   }
 }
 ```
 
-Ejemplo de manejo en React:
+Patrón usado en todas las páginas:
 
-```jsx
-const [error, setError] = useState(null)
-
-const handleRegister = async (formData) => {
-  try {
-    await api.post('/members/register', formData)
-    navigate('/login')
-  } catch (err) {
-    const mensaje = err.response?.data?.error || 'Error inesperado'
-    setError(mensaje)
-
-    // Si hay errores de validación por campo:
-    const erroresCampos = err.response?.data?.errors
-    if (erroresCampos) {
-      // { "dni": ["El DNI debe tener 8 dígitos"] }
-      setFieldErrors(erroresCampos)
-    }
-  }
+```javascript
+try {
+  const data = await apiCall(...)
+} catch (err) {
+  const mensaje = err.response?.data?.error || 'Error inesperado'
+  const erroresCampos = err.response?.data?.errors  // errores por campo (validación)
+  setError(mensaje)
 }
 ```
 
 ---
 
-## CORS — Orígenes permitidos
+## Rate limiting
 
-El backend ya está configurado para aceptar peticiones desde:
-- `http://localhost:3001`
-- `http://localhost:4200`
-- `http://localhost:5173`
+Los limitadores están **deshabilitados en desarrollo** (`NODE_ENV=development`). En producción aplican:
 
-Si el frontend corre en otro puerto, agrégalo en el archivo `.env`:
-```env
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:4200
-```
+| Limitador | Límite | Aplica a |
+|---|---|---|
+| General | 300 req / 15min por IP | Toda la API |
+| Auth | 10 intentos fallidos / 15min | `POST /auth/login` (siempre activo) |
+| POS | 1000 req / 15min | Endpoints `/pos/*` |
+| Reportes | 60 req / hora | Endpoints `/reports/*` |
 
 ---
 
 ## Paginación
 
-Los endpoints que devuelven listas usan paginación. Parámetros:
-- `?page=1` — número de página (empieza en 1)
-- `?limit=20` — registros por página (máximo 100)
+Los endpoints de lista usan paginación estándar:
 
-La respuesta incluye el objeto `meta`:
+```
+GET /members?page=1&limit=20
+```
+
+Respuesta con objeto `meta`:
 ```json
 {
   "success": true,
@@ -341,36 +294,3 @@ La respuesta incluye el objeto `meta`:
   }
 }
 ```
-
----
-
-## Variables de entorno en el frontend
-
-Crea un archivo `.env` en el proyecto frontend:
-
-```env
-# React (Create React App / Vite)
-VITE_API_URL=http://localhost:3001/api/v1
-
-# Next.js
-NEXT_PUBLIC_API_URL=http://localhost:3001/api/v1
-```
-
-Uso en el código:
-```javascript
-const API_URL = import.meta.env.VITE_API_URL  // Vite
-const API_URL = process.env.NEXT_PUBLIC_API_URL  // Next.js
-```
-
----
-
-## Checklist de integración
-
-Antes de conectar el frontend, verifica:
-
-- [ ] El backend está corriendo (`http://localhost:3001/health` responde `"status": "ok"`)
-- [ ] La migración se ejecutó (`npm run prisma:migrate`)
-- [ ] El seed se ejecutó (`npm run prisma:seed`)
-- [ ] Puedes hacer login desde Swagger (`http://localhost:3001/api/docs`)
-- [ ] El origen del frontend está en `CORS_ORIGINS` del `.env`
-- [ ] El frontend usa el prefijo `/api/v1` en todas las peticiones

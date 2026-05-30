@@ -51,8 +51,7 @@ POST /auth/login
 
 | Método | Ruta | Acceso | Descripción |
 |---|---|---|---|
-| `POST` | `/members/register` | Público | Registrar nuevo miembro (CU-01) |
-| `GET` | `/members/me` | CLIENTE | Ver mi perfil RC |
+| `POST` | `/members/register` | CAJERO | Registrar nuevo miembro (CU-01) |
 | `GET` | `/members` | ADMIN | Listar todos los miembros con filtros |
 | `GET` | `/members/card/:cardNumber` | CAJERO | Buscar miembro por número de tarjeta |
 | `GET` | `/members/:id` | Dueño/ADMIN | Ver miembro por ID |
@@ -77,9 +76,11 @@ POST /members/register
   "email": "ana@gmail.com",
   "phone": "987654321",
   "birthDate": "1995-03-15",
-  "password": "MiPass123"
+  "levelId": "uuid-del-nivel"
 }
 ```
+
+> Si `levelId` corresponde al nivel Golden, el backend entrega automáticamente el kit de merchandising al crear el miembro (si hay stock disponible).
 
 ---
 
@@ -197,9 +198,11 @@ El sistema verifica automáticamente:
 | Método | Ruta | Acceso | Descripción |
 |---|---|---|---|
 | `GET` | `/merchandise` | Autenticado | Ver inventario de kits Golden |
-| `POST` | `/merchandise/deliver` | CAJERO | Registrar entrega de kit a miembro Golden |
+| `POST` | `/merchandise/deliver` | CAJERO | Registrar entrega manual de kit (reemplazo) |
 | `GET` | `/merchandise/:memberId/history` | CAJERO | Ver entregas de un miembro |
 | `PATCH` | `/merchandise/:id/stock` | ADMIN | Ajustar stock (ingresar nuevo lote) |
+
+> **Entrega automática:** el sistema descuenta stock automáticamente al registrar un miembro Golden o al detectar que un miembro alcanzó el nivel Golden por visitas. El endpoint `POST /deliver` existe para entregas manuales de reemplazo (kit perdido o dañado) y no tiene restricción de duplicado.
 
 ---
 
@@ -343,7 +346,7 @@ PUT /admin/config/POINTS_RATE
 | `404` | Recurso no encontrado |
 | `409` | Conflicto (ej: DNI ya registrado) |
 | `422` | Regla de negocio violada (ej: puntos insuficientes) |
-| `429` | Demasiadas peticiones (rate limit) |
+| `429` | Demasiadas peticiones (rate limit, solo en producción) |
 | `500` | Error interno del servidor |
 
 ---

@@ -20,7 +20,7 @@ const config: Config = {
     '!src/server.ts',
     '!src/app.ts',
   ],
-  setupFilesAfterFramework: [],
+  setupFilesAfterEnv: [],
   testTimeout: 30000,
 };
 
