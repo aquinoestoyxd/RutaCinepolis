@@ -22,6 +22,7 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 RUN addgroup -g 1001 -S nodejs && adduser -S cinepolis -u 1001
+RUN mkdir -p /app/logs && chown -R cinepolis:nodejs /app/logs
 
 COPY --from=builder --chown=cinepolis:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=cinepolis:nodejs /app/dist ./dist
