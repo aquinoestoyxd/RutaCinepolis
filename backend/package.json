@@ -66,6 +66,11 @@
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
+  "ts-node": {
+    "compilerOptions": {
+      "module": "CommonJS"
+    }
+  },
   "engines": {
     "node": ">=20.0.0"
   }
