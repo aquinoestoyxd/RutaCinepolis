@@ -114,3 +114,33 @@ export const createStaff = (data) =>
 
 export const toggleStaffStatus = (userId) =>
   api.patch(`/admin/staff/${userId}/toggle-status`).then(r => r.data.data)
+
+// PROMOTIONS
+export const getPromotions = () =>
+  api.get('/promotions').then(r => r.data.data)
+
+export const getPromotionById = (id) =>
+  api.get(`/promotions/${id}`).then(r => r.data.data)
+
+export const createPromotion = (data) =>
+  api.post('/promotions', data).then(r => r.data.data)
+
+export const updatePromotion = (id, data) =>
+  api.put(`/promotions/${id}`, data).then(r => r.data.data)
+
+export const deletePromotion = (id) =>
+  api.delete(`/promotions/${id}`)
+
+// NOTIFICATIONS - Member authenticated (uses rc_member_token from localStorage)
+function memberApi() {
+  const token = localStorage.getItem('rc_member_token');
+  return {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  };
+}
+
+export const markNotificationAsReadMember = (id) =>
+  api.patch(`/notifications/${id}/read-member`, {}, memberApi()).then(r => r.data)
+
+export const markAllNotificationsAsReadMember = () =>
+  api.patch('/notifications/read-all-member', {}, memberApi()).then(r => r.data)

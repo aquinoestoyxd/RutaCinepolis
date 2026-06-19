@@ -74,6 +74,7 @@ enum UserRole {
 
 enum NotificationType {
   POINTS_EARNED
+  LEVEL_PROGRESS
   LEVEL_UPGRADE
   BENEFIT_AVAILABLE
   MERCHANDISE_DELIVERY
@@ -392,6 +393,27 @@ model AuditLog {
   @@index([entity])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ──────────────────────────────────────────────
+// PROMOCIONES (HU-07)
+// ──────────────────────────────────────────────
+
+model Promotion {
+  id           String   @id @default(uuid())
+  title        String   @db.VarChar(200)
+  description  String?  @db.Text
+  imageUrl     String?  @db.VarChar(500)
+  startDate    DateTime @db.Timestamptz()
+  endDate      DateTime @db.Timestamptz()
+  terms        String?  @db.Text
+  restrictions String?  @db.Text
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("promotions")
 }
 
 // ──────────────────────────────────────────────

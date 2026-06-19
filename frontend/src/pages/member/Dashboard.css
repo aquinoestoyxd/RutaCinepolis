@@ -137,6 +137,7 @@ body:has(.dashboard-page) #root {
 
 .dashboard-hero,
 .dashboard-stats,
+.level-alerts,
 .benefits-section,
 .vip-banner {
   width: min(var(--layout-max-width), calc(100% - (var(--layout-page-gutter) * 2)));
@@ -425,6 +426,95 @@ body:has(.dashboard-page) #root {
   margin: 12px 0 0;
   color: #596174;
   font-size: 16px;
+}
+
+.level-alerts {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.82fr) minmax(0, 1.18fr);
+  gap: 20px;
+  padding: 0 0 28px;
+}
+
+.level-alerts__summary,
+.level-alert {
+  border: 1px solid color-mix(in srgb, var(--level-color), #e5e9f2 74%);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  box-shadow: var(--shadow-panel);
+}
+
+.level-alerts__summary {
+  padding: 28px 30px;
+  background: linear-gradient(180deg, #ffffff, var(--level-soft, #f7faff));
+}
+
+.level-alerts__summary span,
+.level-alert span {
+  display: inline-flex;
+  width: fit-content;
+  padding: 6px 9px;
+  border-radius: 7px;
+  background: var(--level-soft, #f0f4ff);
+  color: var(--level-dark, #0057ff);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.level-alerts__summary h2 {
+  margin: 18px 0 10px;
+  color: #06164a;
+  font-size: 28px;
+  line-height: 1.08;
+  font-weight: 900;
+}
+
+.level-alerts__summary p,
+.level-alert p {
+  margin: 0;
+  color: #596174;
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.level-alerts__list {
+  display: grid;
+  gap: 12px;
+}
+
+.level-alert {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 20px 22px;
+}
+
+.level-alert--unread {
+  border-color: var(--level-color, #0057ff);
+}
+
+.level-alert strong {
+  display: block;
+  margin: 10px 0 7px;
+  color: #06164a;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.level-alert time {
+  flex-shrink: 0;
+  color: #7a8497;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.level-alert--empty {
+  min-height: 100%;
+  align-items: center;
 }
 
 .benefits-section {
@@ -743,7 +833,8 @@ body:has(.dashboard-page) #root {
   }
 
   .dashboard-hero,
-  .dashboard-stats {
+  .dashboard-stats,
+  .level-alerts {
     grid-template-columns: 1fr;
   }
 

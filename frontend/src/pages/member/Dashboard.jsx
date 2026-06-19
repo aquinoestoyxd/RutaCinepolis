@@ -1,20 +1,58 @@
 import "./Dashboard.css";
 import "../../styles/global.css";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import BenefitsSection from "../../components/Member/BenefitsSection";
 import CinepolisMark from "../../components/Member/CinepolisMark";
 import Navbar from "../../components/Member/Navbar";
 import { useAuth } from "../../context/AuthContext";
 import { getLevelConfig } from "../../utils/member/levelConfig";
-import { getLevelProgress } from "../../utils/member/levelProgress";
+import { getLevelNotificationText, getLevelProgress } from "../../utils/member/levelProgress";
+import { markNotificationAsReadMember, markAllNotificationsAsReadMember } from "../../api/index.js";
+import { getPromotions } from "../../services/promotionService";
 
 function formatCardNumber(cardNumber) {
   return String(cardNumber || "").replace(/(.{4})/g, "$1 ").trim();
 }
 
+function formatNotificationDate(value) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("es-PE", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 function Dashboard() {
   const { dashboardData, logout } = useAuth();
   const navigate = useNavigate();
+  const [notifications, setNotifications] = useState([]);
+  const [promotionsList, setPromotionsList] = useState([]);
+  const [promotionsLoading, setPromotionsLoading] = useState(true);
+  const [promotionsError, setPromotionsError] = useState(null);
+
+  useEffect(() => {
+    if (dashboardData?.notifications) {
+      setNotifications(dashboardData.notifications);
+    }
+  }, [dashboardData]);
+
+  useEffect(() => {
+    const fetchPromotions = async () => {
+      try {
+        const data = await getPromotions();
+        setPromotionsList(Array.isArray(data) ? data : []);
+        setPromotionsError(null);
+      } catch {
+        setPromotionsError("No se pudieron cargar las promociones.");
+      } finally {
+        setPromotionsLoading(false);
+      }
+    };
+    fetchPromotions();
+  }, []);
 
   if (!dashboardData) {
     return <div className="flex items-center justify-center h-screen bg-[#020a18] text-white">Cargando dashboard...</div>;
@@ -22,12 +60,20 @@ function Dashboard() {
 
   const user = dashboardData.user || {};
   const benefits = Array.isArray(dashboardData.benefits) ? dashboardData.benefits : [];
-  const promotions = Array.isArray(dashboardData.promotions) ? dashboardData.promotions : [];
+  const promotions = promotionsList.length > 0
+    ? promotionsList
+    : (Array.isArray(dashboardData.promotions) ? dashboardData.promotions : []);
+  const levelNotifications = Array.isArray(notifications)
+    ? notifications.filter((notification) =>
+        ["LEVEL_PROGRESS", "LEVEL_UPGRADE"].includes(notification.type)
+      )
+    : [];
   const levelKey = user?.level?.toLowerCase() || "standard";
   const level = getLevelConfig(levelKey);
-  const levelProgress = getLevelProgress(levelKey, user?.visits);
+  const levelProgress = getLevelProgress(levelKey, user?.visits, user?.progress);
+  const levelNotificationText = getLevelNotificationText(levelProgress);
   const fullName = `${user?.name || ""} ${user?.lastName || ""}`.trim().toUpperCase();
-  
+
   // Normalizar el nombre de la clase para CSS (estandar -> standard)
   const cssLevelClass = levelKey === "estandar" ? "standard" : levelKey;
 
@@ -37,9 +83,45 @@ function Dashboard() {
     "--level-soft": level.softColor,
   };
 
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      await markNotificationAsReadMember(notificationId);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
+      );
+      
+      const savedDashboard = localStorage.getItem('rc_dashboard');
+      if (savedDashboard) {
+        const data = JSON.parse(savedDashboard);
+        data.notifications = data.notifications.map((n) =>
+          n.id === notificationId ? { ...n, isRead: true } : n
+        );
+        localStorage.setItem('rc_dashboard', JSON.stringify(data));
+      }
+    } catch (error) {
+      console.error("Error al marcar como leida:", error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await markAllNotificationsAsReadMember();
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+
+      const savedDashboard = localStorage.getItem('rc_dashboard');
+      if (savedDashboard) {
+        const data = JSON.parse(savedDashboard);
+        data.notifications = data.notifications.map((n) => ({ ...n, isRead: true }));
+        localStorage.setItem('rc_dashboard', JSON.stringify(data));
+      }
+    } catch (error) {
+      console.error("Error al marcar todas como leidas:", error);
+    }
+  };
+
   const handleLogout = () => {
     logout();
-    navigate("/");
+    navigate("/member/login");
   };
 
   return (
@@ -103,12 +185,101 @@ function Dashboard() {
           <p className="progress-copy">
             {levelProgress.isMaxLevel
               ? `${levelProgress.currentVisits.toLocaleString()} visitas acumuladas`
-              : `${levelProgress.currentVisits.toLocaleString()} de ${levelProgress.requiredVisits.toLocaleString()} visitas para alcanzar ${levelProgress.nextLevel}`}
+              : `${levelProgress.currentVisits.toLocaleString()} de ${Number(levelProgress.requiredVisits || 0).toLocaleString()} visitas para alcanzar ${levelProgress.nextLevel}`}
           </p>
         </article>
       </section>
 
-      <BenefitsSection levelLabel={level.label} levelStyle={levelStyle} promotions={promotions} />
+      <section className="level-alerts" style={levelStyle} aria-label="Avisos de nivel">
+        <div className="level-alerts__summary">
+          <span>Avance de nivel</span>
+          <h2>{levelNotificationText.title}</h2>
+          <p>{levelNotificationText.message}</p>
+          {levelNotifications.some(n => !n.isRead) && (
+            <button 
+              className="mark-all-read-btn" 
+              type="button" 
+              onClick={handleMarkAllAsRead}
+              style={{
+                marginTop: "1rem",
+                padding: "0.5rem 1rem",
+                background: "var(--level-color, #f4c430)",
+                color: "#020a18",
+                border: "none",
+                borderRadius: "4px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                transition: "all 0.2s ease"
+              }}
+            >
+              Marcar todas como leídas
+            </button>
+          )}
+        </div>
+
+        <div className="level-alerts__list">
+          {levelNotifications.length > 0 ? (
+            levelNotifications.map((notification) => (
+              <article
+                className={`level-alert ${notification.isRead ? "" : "level-alert--unread"}`}
+                key={notification.id}
+                onClick={() => !notification.isRead && handleMarkAsRead(notification.id)}
+                style={{ cursor: notification.isRead ? "default" : "pointer" }}
+                title={notification.isRead ? "" : "Haz clic para marcar como leída"}
+              >
+                <div>
+                  <span>{notification.type === "LEVEL_UPGRADE" ? "Nuevo nivel" : "Progreso"}</span>
+                  <strong>{notification.title}</strong>
+                  <p>{notification.message}</p>
+                </div>
+                <time dateTime={notification.createdAt}>{formatNotificationDate(notification.createdAt)}</time>
+              </article>
+            ))
+          ) : (
+            <article className="level-alert level-alert--empty">
+              <div>
+                <span>Sin avisos pendientes</span>
+                <strong>Tu progreso se actualiza con cada visita</strong>
+                <p>Cuando estes cerca de subir de nivel, veras el aviso aqui.</p>
+              </div>
+            </article>
+          )}
+        </div>
+      </section>
+
+      {promotionsLoading ? (
+        <section className="benefits-section" style={levelStyle}>
+          <div className="benefits-section__heading">
+            <div>
+              <span>Club Cinepolis {level.label}</span>
+              <h2>Beneficios Vigentes</h2>
+            </div>
+            <p>Cargando promociones...</p>
+          </div>
+        </section>
+      ) : promotionsError ? (
+        <section className="benefits-section" style={levelStyle}>
+          <div className="benefits-section__heading">
+            <div>
+              <span>Club Cinepolis {level.label}</span>
+              <h2>Beneficios Vigentes</h2>
+            </div>
+            <p>{promotionsError}</p>
+          </div>
+        </section>
+      ) : promotions.length === 0 ? (
+        <section className="benefits-section" style={levelStyle}>
+          <div className="benefits-section__heading">
+            <div>
+              <span>Club Cinepolis {level.label}</span>
+              <h2>Beneficios Vigentes</h2>
+            </div>
+            <p>No hay promociones activas en este momento.</p>
+          </div>
+        </section>
+      ) : (
+        <BenefitsSection levelLabel={level.label} levelStyle={levelStyle} promotions={promotions} />
+      )}
 
       <section className="vip-banner" style={levelStyle}>
         <div>

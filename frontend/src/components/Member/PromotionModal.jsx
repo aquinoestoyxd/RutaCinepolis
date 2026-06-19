@@ -44,6 +44,18 @@ function PromotionModal({ promotion, currentIndex, total, onClose, onPrevious, o
             <strong>
               Vigencia: {formatDate(promotion.startDate)} al {formatDate(promotion.endDate)}
             </strong>
+            {promotion.terms && (
+              <div className="promotion-modal__section">
+                <h3>Terminos y Condiciones</h3>
+                <p>{promotion.terms}</p>
+              </div>
+            )}
+            {promotion.restrictions && (
+              <div className="promotion-modal__section">
+                <h3>Restricciones</h3>
+                <p>{promotion.restrictions}</p>
+              </div>
+            )}
           </div>
         </div>
 

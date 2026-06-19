@@ -207,6 +207,7 @@ async function main() {
     { key: 'POINTS_RATE', value: '0.05', description: 'Tasa de acumulación de puntos (5% del monto)' },
     { key: 'PREMIUM_VISITS_THRESHOLD', value: '10', description: 'Visitas para alcanzar nivel Premium' },
     { key: 'GOLDEN_VISITS_THRESHOLD', value: '25', description: 'Visitas para alcanzar nivel Golden' },
+    { key: 'LEVEL_UPGRADE_NOTICE_VISITS', value: '2', description: 'Visitas restantes para avisar proximidad de cambio de nivel' },
     { key: 'DISCOUNT_TICKET_PREMIUM', value: '0.20', description: 'Descuento en entradas Premium (20%)' },
     { key: 'DISCOUNT_CANDY_PREMIUM', value: '0.10', description: 'Descuento en dulcería Premium (10%)' },
     { key: 'DISCOUNT_TICKET_GOLDEN', value: '0.30', description: 'Descuento en entradas Golden (30%)' },
@@ -249,6 +250,88 @@ async function main() {
     },
   });
 
+  // ── MIEMBROS SOCIOS DE PRUEBA (DEMO HU-06) ───────────────────────────────
+  const sociosDemo = [
+    {
+      dni: '71234567',
+      firstName: 'Diego',
+      lastName: 'Rodríguez',
+      email: 'diego@mail.com',
+      cardNumber: '5890000011110001',
+      levelId: estandar.id,
+      visits: 8,
+      points: 450,
+      spent: 90.00
+    },
+    {
+      dni: '73456789',
+      firstName: 'Lucía',
+      lastName: 'Torres',
+      email: 'lucia@mail.com',
+      cardNumber: '5890000011110002',
+      levelId: premium.id,
+      visits: 23,
+      points: 1250,
+      spent: 250.00
+    },
+    {
+      dni: '74567890',
+      firstName: 'Mariana',
+      lastName: 'Vega',
+      email: 'mariana@mail.com',
+      cardNumber: '5890000011110003',
+      levelId: golden.id,
+      visits: 31,
+      points: 6200,
+      spent: 620.00
+    },
+    {
+      dni: '70123456',
+      firstName: 'Carlos',
+      lastName: 'Ramírez',
+      email: 'carlos@mail.com',
+      cardNumber: '5890000011110004',
+      levelId: estandar.id,
+      visits: 2,
+      points: 100,
+      spent: 20.00
+    }
+  ];
+
+  for (const socio of sociosDemo) {
+    const member = await prisma.member.upsert({
+      where: { dni: socio.dni },
+      update: {},
+      create: {
+        dni: socio.dni,
+        firstName: socio.firstName,
+        lastName: socio.lastName,
+        email: socio.email,
+        cardNumber: socio.cardNumber,
+        status: 'ACTIVE',
+        registeredBy: 'admin@cinepolis.com.pe',
+      },
+    });
+
+    await prisma.membership.upsert({
+      where: { memberId: member.id },
+      update: {
+        levelId: socio.levelId,
+        points: socio.points,
+        totalVisits: socio.visits,
+        totalSpent: socio.spent,
+      },
+      create: {
+        memberId: member.id,
+        levelId: socio.levelId,
+        points: socio.points,
+        totalVisits: socio.visits,
+        totalSpent: socio.spent,
+      },
+    });
+  }
+
+  console.log('✅ Miembros socio de prueba creados (para ingreso en el dashboard)');
   console.log('✅ Usuarios de prueba creados:');
   console.log('   Admin:  admin@cinepolis.com.pe   / Admin123!');
   console.log('   Cajero: cajero@cinepolis.com.pe  / Cajero123!');

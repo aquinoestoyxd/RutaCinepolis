@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/database';
 import { NotificationType } from '../../shared/types/enums';
 
@@ -16,6 +17,39 @@ export class NotificationService {
         title: params.title,
         message: params.message,
       },
+    });
+  }
+
+  async createWithinTx(
+    tx: Prisma.TransactionClient,
+    memberId: string,
+    params: CreateNotificationParams,
+  ) {
+    return tx.notification.create({
+      data: {
+        memberId,
+        type: params.type,
+        title: params.title,
+        message: params.message,
+      },
+    });
+  }
+
+  async upsertLevelProgress(memberId: string, title: string, message: string) {
+    const existing = await prisma.notification.findFirst({
+      where: { memberId, type: NotificationType.LEVEL_PROGRESS, isRead: false },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existing) {
+      return prisma.notification.update({
+        where: { id: existing.id },
+        data: { title, message, createdAt: new Date() },
+      });
+    }
+
+    return prisma.notification.create({
+      data: { memberId, type: NotificationType.LEVEL_PROGRESS, title, message },
     });
   }
 

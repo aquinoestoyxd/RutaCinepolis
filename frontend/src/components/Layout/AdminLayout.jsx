@@ -18,6 +18,7 @@ const navGroups = [
       { to: '/admin/dashboard',     icon: 'ti-layout-dashboard', label: 'Dashboard' },
       { to: '/admin/miembros',      icon: 'ti-users',            label: 'Miembros' },
       { to: '/admin/beneficios',    icon: 'ti-gift',             label: 'Beneficios' },
+      { to: '/admin/promociones',   icon: 'ti-percentage',       label: 'Promociones' },
     ],
   },
   {

@@ -23,6 +23,7 @@ import merchandiseRoutes from './modules/merchandise/merchandise.routes';
 import notificationsRoutes from './modules/notifications/notification.routes';
 import posRoutes from './modules/pos/pos.routes';
 import reportsRoutes from './modules/reports/reports.routes';
+import promotionsRoutes from './modules/promotions/promotions.routes';
 import adminRoutes from './modules/admin/admin.routes';
 
 const swaggerOptions: swaggerJsdoc.Options = {
@@ -246,9 +247,17 @@ const swaggerOptions: swaggerJsdoc.Options = {
         patch: { tags: ['Notifications'], summary: 'Marcar todas como leídas', responses: { 200: { description: 'Todas marcadas como leídas' } } },
       },
       '/notifications/{id}/read': {
-        patch: { tags: ['Notifications'], summary: 'Marcar notificación como leída',
+        patch: { tags: ['Notifications'], summary: 'Marcar notificación como leída (staff JWT)',
           parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string', format: 'uuid' } }],
           responses: { 200: { description: 'Notificación marcada como leída' } } },
+      },
+      '/notifications/{id}/read-member': {
+        patch: { tags: ['Notifications'], summary: 'Marcar notificación como leída (member JWT)',
+          parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string', format: 'uuid' } }],
+          responses: { 200: { description: 'Notificación marcada como leída' } } },
+      },
+      '/notifications/read-all-member': {
+        patch: { tags: ['Notifications'], summary: 'Marcar todas como leídas (member JWT)', responses: { 200: { description: 'Todas marcadas como leídas' } } },
       },
       // ── POS ──────────────────────────────────────────────────
       '/pos/lookup': {
@@ -400,6 +409,7 @@ export function createApp(): Application {
   apiRouter.use('/notifications', notificationsRoutes);
   apiRouter.use('/pos', posRoutes);
   apiRouter.use('/reports', reportsRoutes);
+  apiRouter.use('/promotions', promotionsRoutes);
   apiRouter.use('/admin', adminRoutes);
 
   app.use(`/api/${env.API_VERSION}`, apiRouter);

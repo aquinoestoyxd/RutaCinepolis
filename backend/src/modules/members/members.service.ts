@@ -5,27 +5,30 @@ import { ConflictError, NotFoundError } from '../../shared/utils/errorTypes';
 import { generateCardNumber } from '../../shared/utils/cardGenerator';
 import { getPagination, buildOrderBy } from '../../shared/utils/pagination';
 import { logger } from '../../shared/utils/logger';
+import { env } from '../../config/env';
+import jwt from 'jsonwebtoken';
 import { notificationService } from '../notifications/notification.service';
 import { merchandiseService } from '../merchandise/merchandise.service';
+import { membershipService } from '../membership/membership.service';
 import type { RegisterMemberDto, UpdateMemberDto, MemberStatusDto, SearchMembersQuery } from './members.schema';
 import type { Request } from 'express';
 
 export class MembersService {
   /**
    * El cajero registra al miembro presencialmente y elige el nivel (CU-01).
-   * No se crea cuenta de usuario — el miembro usa la app Cinépolis con su tarjeta.
+   * No se crea cuenta de usuario — el miembro usa la app Cinepolis con su tarjeta.
    */
   async register(dto: RegisterMemberDto, cajeroId: string, cajeroEmail: string) {
     const existingDni = await prisma.member.findUnique({ where: { dni: dto.dni } });
-    if (existingDni) throw new ConflictError('El DNI ya está registrado');
+    if (existingDni) throw new ConflictError('El DNI ya esta registrado');
 
     if (dto.email) {
       const existingEmail = await prisma.member.findUnique({ where: { email: dto.email } });
-      if (existingEmail) throw new ConflictError('El correo electrónico ya está registrado');
+      if (existingEmail) throw new ConflictError('El correo electronico ya esta registrado');
     }
 
     const level = await prisma.level.findUnique({ where: { id: dto.levelId } });
-    if (!level) throw new NotFoundError('Nivel de membresía');
+    if (!level) throw new NotFoundError('Nivel de membresia');
 
     const cardNumber = await this.generateUniqueCardNumber();
 
@@ -68,13 +71,13 @@ export class MembersService {
 
     await notificationService.create(result.id, {
       type: NotificationType.WELCOME,
-      title: `¡Bienvenido a Ruta Cinépolis, ${dto.firstName}!`,
-      message: `Tu tarjeta RC es ${cardNumber}. Nivel: ${level.displayName}. ¡Disfruta tus beneficios!`,
+      title: `!Bienvenido a Ruta Cinepolis, ${dto.firstName}!`,
+      message: `Tu tarjeta RC es ${cardNumber}. Nivel: ${level.displayName}. !Disfruta tus beneficios!`,
     }).catch(() => {});
 
     if (level.name === LevelName.GOLDEN) {
       await merchandiseService.autoDeliverGoldenKit(result.id, cajeroId)
-        .catch(err => logger.warn('Error en entrega automática de kit Golden al registrar', { err, memberId: result.id }));
+        .catch(err => logger.warn('Error en entrega automatica de kit Golden al registrar', { err, memberId: result.id }));
     }
 
     return this.findById(result.id);
@@ -227,7 +230,6 @@ export class MembersService {
     const defaultEndDate = new Date(today);
     defaultEndDate.setFullYear(defaultEndDate.getFullYear() + 1);
 
-    // Mapear beneficios a la estructura que espera el frontend de Yosselin
     const benefits = level.levelBenefits.map(lb => ({
       id: lb.benefit.id,
       level: level.name.toLowerCase(),
@@ -238,12 +240,38 @@ export class MembersService {
       active: lb.benefit.isActive,
     }));
 
-    // En un sistema real, las promociones podrían venir de otra tabla, 
-    // pero para este MVP usamos los beneficios como promociones si son de tipo descuento.
-    const promotions = benefits; 
+    const now = new Date();
+    const activePromotions = await prisma.promotion.findMany({
+      where: {
+        isActive: true,
+        startDate: { lte: now },
+        endDate: { gte: now },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    const promotions = activePromotions.map(p => ({
+      id: p.id,
+      title: p.title,
+      description: p.description,
+      image: p.imageUrl,
+      startDate: p.startDate.toISOString(),
+      endDate: p.endDate.toISOString(),
+      terms: p.terms,
+      restrictions: p.restrictions,
+      active: p.isActive,
+    }));
+
+    const [progress, notificationResult, unreadCount] = await Promise.all([
+      membershipService.getProgressForMember(member.id),
+      notificationService.getForMember(member.id, false, 1, 8),
+      notificationService.getUnreadCount(member.id),
+    ]);
+
+    const memberToken = this.generateMemberToken(member.id);
 
     return {
       user: {
+        id: member.id,
         dni: member.dni,
         cardNumber: member.cardNumber,
         name: member.firstName,
@@ -252,10 +280,22 @@ export class MembersService {
         points: membership.points,
         level: level.name.toLowerCase(),
         email: member.email,
+        progress,
       },
       benefits,
       promotions,
+      notifications: notificationResult.notifications,
+      unreadNotifications: unreadCount,
+      memberToken,
     };
+  }
+
+  private generateMemberToken(memberId: string): string {
+    return jwt.sign(
+      { memberId, type: 'member' },
+      env.JWT_SECRET,
+      { expiresIn: '24h' },
+    );
   }
 
   private async generateUniqueCardNumber(): Promise<string> {
@@ -266,7 +306,7 @@ export class MembersService {
       if (!existing) return cardNumber;
       attempts++;
     }
-    throw new Error('No se pudo generar un número de tarjeta único');
+    throw new Error('No se pudo generar un numero de tarjeta unico');
   }
 }
 

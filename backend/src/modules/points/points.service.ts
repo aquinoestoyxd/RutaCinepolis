@@ -100,15 +100,20 @@ export class PointsService {
       return { transaction, membership: updatedMembership };
     });
 
-    // Verificar upgrade de nivel (RC-F06) — fuera de la transacción atómica principal
+    // Verificar upgrade de nivel (RC-F06) — fuera de la transaccion atomica principal
     const upgraded = await membershipService.checkAndUpgradeLevel(params.memberId, params.cashierId);
+
+    if (!upgraded) {
+      await membershipService.notifyLevelProgressIfNeeded(params.memberId)
+        .catch(err => logger.warn('Error al evaluar notificacion de progreso de nivel', { err, memberId: params.memberId }));
+    }
 
     if (pointsEarned > 0) {
       await notificationService.create(params.memberId, {
         type: NotificationType.POINTS_EARNED,
-        title: '¡Puntos acreditados!',
+        title: '!Puntos acreditados!',
         message: `Ganaste ${pointsEarned} puntos por tu compra de S/. ${params.amount.toFixed(2)}.`,
-      }).catch(err => logger.warn('Error enviando notificación de puntos', { err }));
+      }).catch(err => logger.warn('Error enviando notificacion de puntos', { err }));
     }
 
     return {

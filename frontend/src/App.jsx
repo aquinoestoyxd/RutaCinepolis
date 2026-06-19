@@ -21,6 +21,7 @@ import Configuracion from './pages/admin/Configuracion.jsx'
 import Reportes from './pages/admin/Reportes.jsx'
 import Staff from './pages/admin/Staff.jsx'
 import Merchandising from './pages/admin/Merchandising.jsx'
+import Promociones from './pages/admin/Promociones.jsx'
 import Auditoria from './pages/admin/Auditoria.jsx'
 
 function ProtectedRoute({ children, allowedRoles }) {
@@ -88,6 +89,7 @@ export default function App() {
             <Route path="reportes" element={<Reportes />} />
             <Route path="staff" element={<Staff />} />
             <Route path="merchandising" element={<Merchandising />} />
+            <Route path="promociones" element={<Promociones />} />
             <Route path="auditoria" element={<Auditoria />} />
             <Route index element={<Navigate to="dashboard" replace />} />
           </Route>

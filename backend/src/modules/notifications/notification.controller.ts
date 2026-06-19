@@ -33,7 +33,7 @@ export class NotificationController {
   async markAsRead(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       await notificationService.markAsRead(req.params.id, req.user!.memberId!);
-      ResponseHelper.success(res, null, 'Notificación marcada como leída');
+      ResponseHelper.success(res, null, 'Notificacion marcada como leida');
     } catch (error) {
       next(error);
     }
@@ -42,7 +42,7 @@ export class NotificationController {
   async markAllAsRead(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       await notificationService.markAllAsRead(req.user!.memberId!);
-      ResponseHelper.success(res, null, 'Todas las notificaciones marcadas como leídas');
+      ResponseHelper.success(res, null, 'Todas las notificaciones marcadas como leidas');
     } catch (error) {
       next(error);
     }
