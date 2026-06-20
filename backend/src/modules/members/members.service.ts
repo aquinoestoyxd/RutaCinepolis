@@ -10,6 +10,8 @@ import jwt from 'jsonwebtoken';
 import { notificationService } from '../notifications/notification.service';
 import { merchandiseService } from '../merchandise/merchandise.service';
 import { membershipService } from '../membership/membership.service';
+import { pointsService } from '../points/points.service';
+import { redemptionsService } from '../redemptions/redemptions.service';
 import type { RegisterMemberDto, UpdateMemberDto, MemberStatusDto, SearchMembersQuery } from './members.schema';
 import type { Request } from 'express';
 
@@ -280,6 +282,8 @@ export class MembersService {
         points: membership.points,
         level: level.name.toLowerCase(),
         email: member.email,
+        since: member.registeredAt.toISOString(),
+        status: member.status.toLowerCase(),
         progress,
       },
       benefits,
@@ -296,6 +300,24 @@ export class MembersService {
       env.JWT_SECRET,
       { expiresIn: '24h' },
     );
+  }
+
+  async getMemberHistory(cardNumber: string, page: number = 1, limit: number = 20) {
+    const member = await prisma.member.findUnique({
+      where: { cardNumber },
+      select: { id: true },
+    });
+    if (!member) throw new NotFoundError('Miembro con esta tarjeta no encontrado');
+
+    const [pointsResult, redemptionsResult] = await Promise.all([
+      pointsService.getHistory(member.id, page, limit),
+      redemptionsService.getHistory(member.id, page, limit),
+    ]);
+
+    return {
+      points: pointsResult,
+      redemptions: redemptionsResult,
+    };
   }
 
   private async generateUniqueCardNumber(): Promise<string> {

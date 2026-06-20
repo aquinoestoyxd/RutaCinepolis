@@ -51,6 +51,17 @@ export class MembersController {
     }
   }
 
+  async getHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const data = await membersService.getMemberHistory(req.params.cardNumber, page, limit);
+      ResponseHelper.success(res, data);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const dto = req.body as UpdateMemberDto;

@@ -9,7 +9,6 @@ import { useAuth } from "../../context/AuthContext";
 import { getLevelConfig } from "../../utils/member/levelConfig";
 import { getLevelNotificationText, getLevelProgress } from "../../utils/member/levelProgress";
 import { markNotificationAsReadMember, markAllNotificationsAsReadMember } from "../../api/index.js";
-import { getPromotions } from "../../services/promotionService";
 
 function formatCardNumber(cardNumber) {
   return String(cardNumber || "").replace(/(.{4})/g, "$1 ").trim();
@@ -29,9 +28,6 @@ function Dashboard() {
   const { dashboardData, logout, refetchError } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
-  const [promotionsList, setPromotionsList] = useState([]);
-  const [promotionsLoading, setPromotionsLoading] = useState(true);
-  const [promotionsError, setPromotionsError] = useState(null);
   const [actionMsg, setActionMsg] = useState(null);
 
   useEffect(() => {
@@ -40,30 +36,12 @@ function Dashboard() {
     }
   }, [dashboardData]);
 
-  useEffect(() => {
-    const fetchPromotions = async () => {
-      try {
-        const data = await getPromotions();
-        setPromotionsList(Array.isArray(data) ? data : []);
-        setPromotionsError(null);
-      } catch {
-        setPromotionsError("No se pudieron cargar las promociones.");
-      } finally {
-        setPromotionsLoading(false);
-      }
-    };
-    fetchPromotions();
-  }, []);
-
   if (!dashboardData) {
     return <div className="flex items-center justify-center h-screen bg-[#020a18] text-white">Cargando dashboard...</div>;
   }
 
   const user = dashboardData.user || {};
   const benefits = Array.isArray(dashboardData.benefits) ? dashboardData.benefits : [];
-  const promotions = promotionsList.length > 0
-    ? promotionsList
-    : (Array.isArray(dashboardData.promotions) ? dashboardData.promotions : []);
   const levelNotifications = Array.isArray(notifications)
     ? notifications.filter((notification) =>
         ["LEVEL_PROGRESS", "LEVEL_UPGRADE"].includes(notification.type)
@@ -267,50 +245,7 @@ function Dashboard() {
         </div>
       </section>
 
-      {promotionsLoading ? (
-        <section className="benefits-section" style={levelStyle}>
-          <div className="benefits-section__heading">
-            <div>
-              <span>Club Cinepolis {level.label}</span>
-              <h2>Beneficios Vigentes</h2>
-            </div>
-            <p>Cargando promociones...</p>
-          </div>
-        </section>
-      ) : promotionsError ? (
-        <section className="benefits-section" style={levelStyle}>
-          <div className="benefits-section__heading">
-            <div>
-              <span>Club Cinepolis {level.label}</span>
-              <h2>Beneficios Vigentes</h2>
-            </div>
-            <p>{promotionsError}</p>
-          </div>
-        </section>
-      ) : promotions.length === 0 ? (
-        <section className="benefits-section" style={levelStyle}>
-          <div className="benefits-section__heading">
-            <div>
-              <span>Club Cinepolis {level.label}</span>
-              <h2>Beneficios Vigentes</h2>
-            </div>
-            <p>No hay promociones activas en este momento.</p>
-          </div>
-        </section>
-      ) : (
-        <BenefitsSection levelLabel={level.label} levelStyle={levelStyle} promotions={promotions} />
-      )}
-
-      <section className="vip-banner" style={levelStyle}>
-        <div>
-          <strong>Promociones {level.label}</strong>
-          <div>
-            <p>Seccion lista para futuras promociones por nivel.</p>
-            <span>{benefits.map((benefit) => benefit.title).join(" ")}</span>
-          </div>
-        </div>
-        <button type="button">Conocer mas</button>
-      </section>
+      <BenefitsSection levelLabel={level.label} levelStyle={levelStyle} benefits={benefits} />
     </main>
   );
 }

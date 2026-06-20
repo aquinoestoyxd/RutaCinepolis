@@ -4,6 +4,10 @@ import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import Login from './pages/Login.jsx'
 import MemberLogin from './pages/member/Login.jsx'
 import MemberDashboard from './pages/member/Dashboard.jsx'
+import MemberProfile from './pages/member/Profile.jsx'
+import MemberActivityHistory from './pages/member/ActivityHistory.jsx'
+import MemberPromociones from './pages/member/Promociones.jsx'
+import MemberNotifications from './pages/member/Notifications.jsx'
 
 // Cajero
 import CajeroLayout from './components/Layout/CajeroLayout.jsx'
@@ -59,6 +63,26 @@ export default function App() {
           <Route path="/member/dashboard" element={
             <ProtectedRoute allowedRoles={['CLIENTE']}>
               <MemberDashboard />
+            </ProtectedRoute>
+          } />
+          <Route path="/member/promociones" element={
+            <ProtectedRoute allowedRoles={['CLIENTE']}>
+              <MemberPromociones />
+            </ProtectedRoute>
+          } />
+          <Route path="/member/profile" element={
+            <ProtectedRoute allowedRoles={['CLIENTE']}>
+              <MemberProfile />
+            </ProtectedRoute>
+          } />
+          <Route path="/member/activity" element={
+            <ProtectedRoute allowedRoles={['CLIENTE']}>
+              <MemberActivityHistory />
+            </ProtectedRoute>
+          } />
+          <Route path="/member/notifications" element={
+            <ProtectedRoute allowedRoles={['CLIENTE']}>
+              <MemberNotifications />
             </ProtectedRoute>
           } />
           <Route path="/" element={<RoleRedirect />} />

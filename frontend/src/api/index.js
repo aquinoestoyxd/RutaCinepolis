@@ -131,6 +131,10 @@ export const updatePromotion = (id, data) =>
 export const deletePromotion = (id) =>
   api.delete(`/promotions/${id}`)
 
+// MEMBER HISTORY
+export const getMemberHistory = (cardNumber, params) =>
+  api.get(`/members/history/${cardNumber}`, { params }).then(r => r.data.data)
+
 // NOTIFICATIONS - Member authenticated (uses rc_member_token from localStorage)
 function memberApi() {
   const token = localStorage.getItem('rc_member_token');
@@ -138,6 +142,9 @@ function memberApi() {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   };
 }
+
+export const getMemberNotifications = (params) =>
+  api.get('/notifications/member', { ...memberApi(), params }).then(r => r.data)
 
 export const markNotificationAsReadMember = (id) =>
   api.patch(`/notifications/${id}/read-member`, {}, memberApi()).then(r => r.data)

@@ -28,6 +28,9 @@ router.get('/card/:cardNumber', membersController.findByCard.bind(membersControl
 // Dashboard consolidado para el panel de miembros
 router.get('/dashboard/:cardNumber', membersController.getDashboard.bind(membersController));
 
+// Historial de actividad del miembro (puntos y canjes)
+router.get('/history/:cardNumber', membersController.getHistory.bind(membersController));
+
 router.get(
   '/',
   authenticate,

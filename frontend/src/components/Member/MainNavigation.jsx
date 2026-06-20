@@ -4,7 +4,7 @@ const navigationItems = [
   { label: "Cartelera", href: "/" },
   { label: "Peliculas", href: "/" },
   { label: "Club Cinepolis", href: "/dashboard", active: true },
-  { label: "Promociones", href: "/" },
+  { label: "Promociones", href: "/member/promociones" },
   { label: "Beneficios", href: "#beneficios" },
 ];
 
