@@ -24,6 +24,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [dashboardData, setDashboardData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [refetchError, setRefetchError] = useState(null)
 
   useEffect(() => {
     const saved = localStorage.getItem('rc_user')
@@ -43,7 +44,10 @@ export function AuthProvider({ children }) {
             localStorage.setItem('rc_member_token', data.memberToken)
           }
           setDashboardData(data)
-        }).catch(() => {})
+          setRefetchError(null)
+        }).catch(() => {
+          setRefetchError('No se pudo actualizar la informacion. Los datos mostrados pueden no estar actualizados.')
+        })
         return
       }
       clearMemberSession()
@@ -94,7 +98,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, dashboardData, login, loginByCard, logout, loading }}>
+    <AuthContext.Provider value={{ user, dashboardData, login, loginByCard, logout, loading, refetchError }}>
       {children}
     </AuthContext.Provider>
   )

@@ -31,12 +31,15 @@ export default function RegistrarMiembro() {
   const [error, setError]           = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [loading, setLoading]       = useState(false)
+  const [levelsLoading, setLevelsLoading] = useState(true)
 
   useEffect(() => {
+    setLevelsLoading(true)
     getLevels().then(data => {
       setLevels(data)
       if (data.length > 0) setForm(f => ({ ...f, levelId: data[0].id }))
-    }).catch(() => {})
+    }).catch(() => setError('Error al cargar niveles de membresia'))
+    .finally(() => setLevelsLoading(false))
   }, [])
 
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
@@ -113,6 +116,12 @@ export default function RegistrarMiembro() {
             {/* Nivel */}
             <div>
               <label style={lbl}>Nivel de membresia *</label>
+              {levelsLoading ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '16px', color: '#8892aa', fontSize: '13px' }}>
+                  <i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} />
+                  Cargando niveles...
+                </div>
+              ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '10px' }}>
                 {levels.map(level => {
                   const lm = LEVEL_META[level.name] || LEVEL_META.ESTANDAR
@@ -131,6 +140,7 @@ export default function RegistrarMiembro() {
                   )
                 })}
               </div>
+              )}
             </div>
 
             {/* DNI */}

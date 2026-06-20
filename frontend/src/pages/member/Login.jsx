@@ -49,24 +49,30 @@ const benefits = [
 function Login() {
   const [cardNumber, setCardNumber] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const { loginByCard } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (loading) return;
     setError("");
+    setLoading(true);
 
-    // Limpiar el número de tarjeta (quitar espacios si los hay)
     const cleanCardNumber = cardNumber.replace(/\D/g, "");
 
-    const result = await loginByCard(cleanCardNumber);
-
-    if (!result.ok) {
-      setError(result.message);
-      return;
+    try {
+      const result = await loginByCard(cleanCardNumber);
+      if (!result.ok) {
+        setError(result.message);
+        return;
+      }
+      navigate("/member/dashboard");
+    } catch {
+      setError("Error al conectar con el servidor. Intenta nuevamente.");
+    } finally {
+      setLoading(false);
     }
-
-    navigate("/member/dashboard");
   };
 
   return (
@@ -112,7 +118,9 @@ function Login() {
             {error && <p className="login-error">{error}</p>}
           </div>
 
-          <button type="submit">Continuar</button>
+          <button type="submit" disabled={loading} style={{ opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}>
+            {loading ? 'Verificando tarjeta...' : 'Continuar'}
+          </button>
 
           <p className="login-card__secure">
             <span aria-hidden="true">LOCK</span>

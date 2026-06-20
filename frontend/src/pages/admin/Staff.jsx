@@ -40,8 +40,14 @@ export default function Staff() {
   const [showPass, setShowPass]   = useState(false)
   const [msg, setMsg]             = useState({ text: '', type: 'success' })
   const [loading, setLoading]     = useState(false)
+  const [loadingList, setLoadingList] = useState(true)
+  const [toggling, setToggling]   = useState(null)
 
-  const load = async () => { try { setStaff(await getStaff()) } catch {} }
+  const load = async () => {
+    setLoadingList(true)
+    try { setStaff(await getStaff()) } catch { setMsg({ text: 'Error al cargar staff', type: 'error' }) }
+    finally { setLoadingList(false) }
+  }
   useEffect(() => { load() }, [])
 
   const showNotif = (text, type = 'success') => { setMsg({ text, type }); setTimeout(() => setMsg({ text: '' }), 3500) }
@@ -54,7 +60,10 @@ export default function Staff() {
   }
 
   const handleToggle = async (id, isActive) => {
-    try { await toggleStaffStatus(id); showNotif(`Usuario ${isActive ? 'desactivado' : 'activado'}`); load() } catch {}
+    setToggling(id)
+    try { await toggleStaffStatus(id); showNotif(`Usuario ${isActive ? 'desactivado' : 'activado'}`); load() }
+    catch { showNotif('Error al cambiar estado', 'error') }
+    finally { setToggling(null) }
   }
 
   return (
@@ -80,7 +89,12 @@ export default function Staff() {
 
         {/* Cards de staff */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '14px', animation: 'cpFadeUp 0.4s ease both', animationDelay: '80ms' }}>
-          {staff.length === 0 ? (
+          {loadingList ? (
+            <div style={{ gridColumn: '1/-1', background: '#fff', borderRadius: '18px', border: `1px solid ${BORDER}`, padding: '56px', textAlign: 'center' }}>
+              <i className="ti ti-loader-2" style={{ fontSize: '36px', color: NAVY, display: 'block', margin: '0 auto 14px', animation: 'spin 1s linear infinite' }} />
+              <p style={{ color: '#8892aa', margin: 0, fontSize: '14px', fontWeight: 500 }}>Cargando staff...</p>
+            </div>
+          ) : staff.length === 0 ? (
             <div style={{ gridColumn: '1/-1', background: '#fff', borderRadius: '18px', border: `1px solid ${BORDER}`, padding: '56px', textAlign: 'center' }}>
               <i className="ti ti-users" style={{ fontSize: '40px', display: 'block', margin: '0 auto 12px', color: '#d1d5db' }} />
               <p style={{ color: '#8892aa', margin: 0, fontSize: '14px', fontWeight: 500 }}>No hay usuarios de staff registrados</p>
@@ -114,10 +128,10 @@ export default function Staff() {
                       {st.lastLoginAt ? new Date(st.lastLoginAt).toLocaleDateString('es-PE',{day:'2-digit',month:'short',year:'numeric'}) : <span style={{ fontStyle: 'italic', color: '#b0b8cc' }}>Nunca</span>}
                     </p>
                   </div>
-                  <button className="cp-tgl" onClick={() => handleToggle(st.id, st.isActive)}
-                    style={{ height: '34px', padding: '0 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 700, fontFamily: "'Barlow',sans-serif", background: st.isActive?'#fff4f4':'#f0faf5', color: st.isActive?RED:GREEN, display: 'flex', alignItems: 'center', gap: '5px', transition: 'opacity 0.15s' }}>
-                    <i className={`ti ${st.isActive ? 'ti-user-x' : 'ti-user-check'}`} style={{ fontSize: '14px' }} />
-                    {st.isActive ? 'Desactivar' : 'Activar'}
+                  <button className="cp-tgl" onClick={() => handleToggle(st.id, st.isActive)} disabled={toggling === st.id}
+                    style={{ height: '34px', padding: '0 14px', borderRadius: '8px', border: 'none', cursor: toggling === st.id ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 700, fontFamily: "'Barlow',sans-serif", background: st.isActive?'#fff4f4':'#f0faf5', color: st.isActive?RED:GREEN, display: 'flex', alignItems: 'center', gap: '5px', transition: 'opacity 0.15s', opacity: toggling === st.id ? 0.5 : 1 }}>
+                    {toggling === st.id ? <i className="ti ti-loader-2" style={{ fontSize: '14px', animation: 'spin 1s linear infinite' }} /> : <i className={`ti ${st.isActive ? 'ti-user-x' : 'ti-user-check'}`} style={{ fontSize: '14px' }} />}
+                    {toggling === st.id ? '...' : (st.isActive ? 'Desactivar' : 'Activar')}
                   </button>
                 </div>
               </div>

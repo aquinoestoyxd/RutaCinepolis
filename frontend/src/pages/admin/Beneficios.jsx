@@ -45,9 +45,12 @@ export default function Beneficios() {
   const [form, setForm]         = useState(emptyForm)
   const [msg, setMsg]           = useState({ text: '', type: 'success' })
   const [loading, setLoading]   = useState(false)
+  const [loadingList, setLoadingList] = useState(true)
 
   const load = async () => {
+    setLoadingList(true)
     try { const [b, l] = await Promise.all([getBenefits({}), getLevels()]); setBenefits(b); setLevels(l) } catch {}
+    finally { setLoadingList(false) }
   }
   useEffect(() => { load() }, [])
 
@@ -70,9 +73,14 @@ export default function Beneficios() {
     finally { setLoading(false) }
   }
 
+  const [deleting, setDeleting] = useState(null)
+
   const handleDelete = async id => {
     if (!confirm('Desactivar este beneficio?')) return
-    try { await deleteBenefit(id); load(); setMsg({ text: 'Beneficio desactivado', type: 'success' }); setTimeout(() => setMsg({ text: '' }), 3500) } catch {}
+    setDeleting(id)
+    try { await deleteBenefit(id); load(); setMsg({ text: 'Beneficio desactivado', type: 'success' }); setTimeout(() => setMsg({ text: '' }), 3500) }
+    catch { setMsg({ text: 'Error al desactivar beneficio', type: 'error' }) }
+    finally { setDeleting(null) }
   }
 
   const toggleLevel = id => setForm(f => ({ ...f, levelIds: f.levelIds.includes(id) ? f.levelIds.filter(x=>x!==id) : [...f.levelIds, id] }))
@@ -96,7 +104,12 @@ export default function Beneficios() {
           </div>
         )}
 
-        {benefits.length === 0 ? (
+        {loadingList ? (
+          <div style={{ background: '#fff', borderRadius: '18px', border: `1px solid ${BORDER}`, padding: '64px', textAlign: 'center' }}>
+            <i className="ti ti-loader-2" style={{ fontSize: '36px', color: NAVY, display: 'block', margin: '0 auto 14px', animation: 'spin 1s linear infinite' }} />
+            <p style={{ color: '#8892aa', margin: 0, fontSize: '15px', fontWeight: 500 }}>Cargando beneficios...</p>
+          </div>
+        ) : benefits.length === 0 ? (
           <div style={{ background: '#fff', borderRadius: '18px', border: `1px solid ${BORDER}`, padding: '64px', textAlign: 'center' }}>
             <i className="ti ti-gift" style={{ fontSize: '48px', display: 'block', margin: '0 auto 14px', color: '#d1d5db' }} />
             <p style={{ color: '#8892aa', margin: '0 0 20px', fontSize: '15px', fontWeight: 500 }}>No hay beneficios configurados aun</p>
@@ -124,8 +137,8 @@ export default function Beneficios() {
                       <button onClick={() => openEdit(b)} style={{ height: '32px', padding: '0 12px', borderRadius: '8px', background: `${NAVY}08`, border: 'none', color: NAVY, fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Barlow',sans-serif", display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <i className="ti ti-pencil" style={{ fontSize: '13px' }} /> Editar
                       </button>
-                      <button onClick={() => handleDelete(b.id)} style={{ height: '32px', padding: '0 12px', borderRadius: '8px', background: '#fff4f4', border: 'none', color: RED, fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Barlow',sans-serif", display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <i className="ti ti-trash" style={{ fontSize: '13px' }} />
+                      <button onClick={() => handleDelete(b.id)} disabled={deleting === b.id} style={{ height: '32px', padding: '0 12px', borderRadius: '8px', background: '#fff4f4', border: 'none', color: RED, fontSize: '12px', fontWeight: 700, cursor: deleting === b.id ? 'not-allowed' : 'pointer', fontFamily: "'Barlow',sans-serif", display: 'flex', alignItems: 'center', gap: '4px', opacity: deleting === b.id ? 0.5 : 1 }}>
+                        {deleting === b.id ? <i className="ti ti-loader-2" style={{ fontSize: '13px', animation: 'spin 1s linear infinite' }} /> : <i className="ti ti-trash" style={{ fontSize: '13px' }} />}
                       </button>
                     </div>
                   </div>

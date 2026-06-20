@@ -304,16 +304,19 @@ export default function Auditoria() {
   const [data, setData]         = useState({ logs: [], total: 0 })
   const [filters, setFilters]   = useState({ action: '', entity: '', from: '', to: '', page: 1 })
   const [loading, setLoading]   = useState(false)
+  const [loadError, setLoadError] = useState(null)
   const [expanded, setExpanded] = useState(null)
   const searchRef               = useRef(null)
 
   const load = useCallback(async () => {
-    setLoading(true)
+    setLoading(true); setLoadError(null)
     try {
       const params = { ...filters, limit: 20 }
       Object.keys(params).forEach(k => { if (!params[k]) delete params[k] })
       setData(await getAuditLogs(params))
-    } catch {} finally { setLoading(false) }
+    } catch {
+      setLoadError('No se pudieron cargar los registros de auditoria. Verifica la conexion con el servidor.')
+    } finally { setLoading(false) }
   }, [filters])
 
   useEffect(() => { load() }, [load])
@@ -445,6 +448,18 @@ export default function Auditoria() {
                 <i className="ti ti-loader-2" style={{ fontSize: '22px', color: NAVY, animation: 'spin 1s linear infinite' }} />
               </div>
               <p style={{ color: '#8892aa', margin: 0, fontSize: '14px', fontWeight: 500 }}>Cargando actividad...</p>
+            </div>
+
+          ) : loadError ? (
+            <div style={{ padding: '60px', textAlign: 'center' }}>
+              <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: '#fff4f4', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <i className="ti ti-wifi-off" style={{ fontSize: '28px', color: RED }} />
+              </div>
+              <p style={{ color: '#374151', margin: '0 0 6px', fontSize: '15px', fontWeight: 700 }}>Error al cargar actividad</p>
+              <p style={{ color: '#8892aa', margin: '0 0 20px', fontSize: '13px' }}>{loadError}</p>
+              <button onClick={load} style={{ height: '38px', padding: '0 20px', borderRadius: '10px', background: NAVY, color: '#fff', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: "'Barlow',sans-serif", display: 'inline-flex', alignItems: 'center', gap: '7px' }}>
+                <i className="ti ti-refresh" /> Reintentar
+              </button>
             </div>
 
           ) : logs.length === 0 ? (

@@ -63,6 +63,8 @@ export default function Miembros() {
   const [adjustModal, setAdjustModal] = useState(null)
   const [adjustForm, setAdjustForm] = useState({ delta: '', reason: '' })
   const [msg, setMsg]               = useState({ text: '', type: 'success' })
+  const [statusLoading, setStatusLoading] = useState(null)
+  const [adjustLoading, setAdjustLoading] = useState(false)
 
   const showMsg = (text, type = 'success') => { setMsg({ text, type }); setTimeout(() => setMsg({ text: '' }), 3500) }
 
@@ -77,13 +79,17 @@ export default function Miembros() {
   useEffect(() => { load(1) }, [load])
 
   const handleStatus = async (id, newStatus) => {
+    setStatusLoading(id)
     try { await updateMemberStatus(id, newStatus); showMsg('Estado actualizado'); load(data.meta?.page || 1); setSelected(null) }
     catch (err) { showMsg(err.response?.data?.error || 'Error', 'error') }
+    finally { setStatusLoading(null) }
   }
 
   const handleAdjust = async () => {
+    setAdjustLoading(true)
     try { await adjustPoints(adjustModal.id, parseInt(adjustForm.delta), adjustForm.reason); showMsg('Puntos ajustados'); setAdjustModal(null); setAdjustForm({ delta:'', reason:'' }); load() }
     catch (err) { showMsg(err.response?.data?.error || 'Error', 'error') }
+    finally { setAdjustLoading(false) }
   }
 
   const totalPages  = Math.ceil((data.meta?.total || data.total || 0) / 20)
@@ -215,14 +221,14 @@ export default function Miembros() {
           <Modal title={`Estado — ${selected.firstName} ${selected.lastName}`} subtitle="Selecciona el nuevo estado del miembro" onClose={() => setSelected(null)}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '18px' }}>
               {['ACTIVE','INACTIVE','SUSPENDED'].map(s => {
-                const m = STATUS[s]; const isAct = selected.status === s
+                const m = STATUS[s]; const isAct = selected.status === s; const isLoading = statusLoading === selected.id
                 return (
-                  <button key={s} onClick={() => handleStatus(selected.id, s)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderRadius: '12px', border: `2px solid ${isAct ? m.color : BORDER}`, background: isAct ? m.bg : '#fff', cursor: 'pointer', fontFamily: "'Barlow',sans-serif", fontWeight: isAct ? 800 : 500, fontSize: '14px', color: isAct ? m.color : '#374151', transition: 'all 0.15s' }}>
+                  <button key={s} onClick={() => handleStatus(selected.id, s)} disabled={isLoading} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderRadius: '12px', border: `2px solid ${isAct ? m.color : BORDER}`, background: isAct ? m.bg : '#fff', cursor: isLoading ? 'not-allowed' : 'pointer', fontFamily: "'Barlow',sans-serif", fontWeight: isAct ? 800 : 500, fontSize: '14px', color: isAct ? m.color : '#374151', transition: 'all 0.15s', opacity: isLoading ? 0.6 : 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: m.dot, display: 'inline-block' }} />
+                      {isLoading ? <i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> : <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: m.dot, display: 'inline-block' }} />}
                       {m.label}
                     </div>
-                    {isAct && <i className="ti ti-check" style={{ fontSize: '17px' }} />}
+                    {isAct && !isLoading && <i className="ti ti-check" style={{ fontSize: '17px' }} />}
                   </button>
                 )
               })}
@@ -250,9 +256,10 @@ export default function Miembros() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '10px' }}>
-              <button style={{ ...btnS, flex: 1, justifyContent: 'center' }} onClick={() => setAdjustModal(null)}>Cancelar</button>
-              <button style={{ ...btnP, flex: 1, justifyContent: 'center', opacity: (!adjustForm.delta || !adjustForm.reason) ? 0.45 : 1 }} onClick={handleAdjust} disabled={!adjustForm.delta || !adjustForm.reason}>
-                <i className="ti ti-check" /> Aplicar ajuste
+              <button style={{ ...btnS, flex: 1, justifyContent: 'center' }} onClick={() => setAdjustModal(null)} disabled={adjustLoading}>Cancelar</button>
+              <button style={{ ...btnP, flex: 1, justifyContent: 'center', opacity: (!adjustForm.delta || !adjustForm.reason || adjustLoading) ? 0.45 : 1 }} onClick={handleAdjust} disabled={!adjustForm.delta || !adjustForm.reason || adjustLoading}>
+                {adjustLoading ? <i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> : <i className="ti ti-check" />}
+                {adjustLoading ? 'Ajustando...' : 'Aplicar ajuste'}
               </button>
             </div>
           </Modal>

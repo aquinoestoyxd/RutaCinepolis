@@ -26,8 +26,13 @@ export default function Merchandising() {
   const [delta, setDelta]         = useState('')
   const [msg, setMsg]             = useState({ text: '', type: 'success' })
   const [loading, setLoading]     = useState(false)
+  const [loadingList, setLoadingList] = useState(true)
 
-  const load = async () => { try { setItems(await getMerchandise()) } catch {} }
+  const load = async () => {
+    setLoadingList(true)
+    try { setItems(await getMerchandise()) } catch { showNotif('Error al cargar inventario', 'error') }
+    finally { setLoadingList(false) }
+  }
   useEffect(() => { load() }, [])
 
   const showNotif = (text, type = 'success') => { setMsg({ text, type }); setTimeout(() => setMsg({ text: '' }), 3500) }
@@ -69,6 +74,13 @@ export default function Merchandising() {
           </div>
         )}
 
+        {/* Loading */}
+        {loadingList ? (
+          <div style={{ background: '#fff', borderRadius: '18px', border: `1px solid ${BORDER}`, padding: '64px', textAlign: 'center' }}>
+            <i className="ti ti-loader-2" style={{ fontSize: '36px', color: NAVY, display: 'block', margin: '0 auto 14px', animation: 'spin 1s linear infinite' }} />
+            <p style={{ color: '#8892aa', margin: 0, fontSize: '15px', fontWeight: 500 }}>Cargando inventario...</p>
+          </div>
+        ) : null}
         {/* Alertas primero */}
         {lowItems.length > 0 && (
           <div style={{ marginBottom: '20px' }}>
@@ -125,10 +137,10 @@ export default function Merchandising() {
                 )}
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button style={{ ...btnS, flex: 1, justifyContent: 'center' }} onClick={() => setStockModal(null)}>Cancelar</button>
+                <button style={{ ...btnS, flex: 1, justifyContent: 'center' }} onClick={() => setStockModal(null)} disabled={loading}>Cancelar</button>
                 <button style={{ ...btnP, flex: 1, justifyContent: 'center', opacity: (!delta || loading) ? 0.45 : 1 }} onClick={handleStock} disabled={loading || !delta}>
                   {loading ? <i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> : <i className="ti ti-check" />}
-                  Confirmar
+                  {loading ? 'Ajustando...' : 'Confirmar'}
                 </button>
               </div>
             </div>

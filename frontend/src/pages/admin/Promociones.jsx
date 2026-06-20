@@ -127,8 +127,11 @@ export default function Promociones() {
     }
   }
 
+  const [deactivating, setDeactivating] = useState(null)
+
   const handleDeactivate = async (id) => {
     if (!confirm('Desactivar esta promocion?')) return
+    setDeactivating(id)
     try {
       await promotionService.deletePromotion(id)
       setMsg({ text: 'Promocion desactivada', type: 'success' })
@@ -137,6 +140,8 @@ export default function Promociones() {
     } catch {
       setMsg({ text: 'Error al desactivar la promocion', type: 'error' })
       setTimeout(() => setMsg({ text: '' }), 3500)
+    } finally {
+      setDeactivating(null)
     }
   }
 
@@ -201,8 +206,8 @@ export default function Promociones() {
                       <button onClick={() => openEdit(p)} style={{ height: '32px', padding: '0 12px', borderRadius: '8px', background: `${NAVY}08`, border: 'none', color: NAVY, fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Barlow',sans-serif", display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <i className="ti ti-pencil" style={{ fontSize: '13px' }} /> Editar
                       </button>
-                      <button onClick={() => handleDeactivate(p.id)} style={{ height: '32px', padding: '0 12px', borderRadius: '8px', background: '#fff4f4', border: 'none', color: RED, fontSize: '12px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Barlow',sans-serif", display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <i className="ti ti-trash" style={{ fontSize: '13px' }} />
+                      <button onClick={() => handleDeactivate(p.id)} disabled={deactivating === p.id} style={{ height: '32px', padding: '0 12px', borderRadius: '8px', background: '#fff4f4', border: 'none', color: RED, fontSize: '12px', fontWeight: 700, cursor: deactivating === p.id ? 'not-allowed' : 'pointer', fontFamily: "'Barlow',sans-serif", display: 'flex', alignItems: 'center', gap: '4px', opacity: deactivating === p.id ? 0.5 : 1 }}>
+                        {deactivating === p.id ? <i className="ti ti-loader-2" style={{ fontSize: '13px', animation: 'spin 1s linear infinite' }} /> : <i className="ti ti-trash" style={{ fontSize: '13px' }} />}
                       </button>
                     </div>
                   </div>

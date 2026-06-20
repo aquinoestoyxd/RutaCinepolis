@@ -26,12 +26,13 @@ function formatNotificationDate(value) {
 }
 
 function Dashboard() {
-  const { dashboardData, logout } = useAuth();
+  const { dashboardData, logout, refetchError } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [promotionsList, setPromotionsList] = useState([]);
   const [promotionsLoading, setPromotionsLoading] = useState(true);
   const [promotionsError, setPromotionsError] = useState(null);
+  const [actionMsg, setActionMsg] = useState(null);
 
   useEffect(() => {
     if (dashboardData?.notifications) {
@@ -83,6 +84,11 @@ function Dashboard() {
     "--level-soft": level.softColor,
   };
 
+  const showActionMsg = (text, type = 'error') => {
+    setActionMsg({ text, type });
+    setTimeout(() => setActionMsg(null), 3500);
+  };
+
   const handleMarkAsRead = async (notificationId) => {
     try {
       await markNotificationAsReadMember(notificationId);
@@ -98,8 +104,8 @@ function Dashboard() {
         );
         localStorage.setItem('rc_dashboard', JSON.stringify(data));
       }
-    } catch (error) {
-      console.error("Error al marcar como leida:", error);
+    } catch {
+      showActionMsg('Error al marcar como leida. Intenta nuevamente.');
     }
   };
 
@@ -114,8 +120,8 @@ function Dashboard() {
         data.notifications = data.notifications.map((n) => ({ ...n, isRead: true }));
         localStorage.setItem('rc_dashboard', JSON.stringify(data));
       }
-    } catch (error) {
-      console.error("Error al marcar todas como leidas:", error);
+    } catch {
+      showActionMsg('Error al marcar todas como leidas. Intenta nuevamente.');
     }
   };
 
@@ -127,6 +133,20 @@ function Dashboard() {
   return (
     <main className="dashboard-page">
       <Navbar user={user} onLogout={handleLogout} />
+
+      {actionMsg && (
+        <div style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 500, background: actionMsg.type === 'error' ? '#fff4f4' : '#f0faf5', border: `1px solid ${actionMsg.type === 'error' ? '#fca5a5' : '#c6f0db'}`, color: actionMsg.type === 'error' ? '#c53030' : '#065f46', display: 'flex', alignItems: 'center', gap: '9px', animation: 'cpFadeUp 0.2s ease' }}>
+          <i className={`ti ${actionMsg.type === 'error' ? 'ti-alert-circle' : 'ti-circle-check'}`} style={{ fontSize: '16px', flexShrink: 0 }} />
+          {actionMsg.text}
+        </div>
+      )}
+
+      {refetchError && (
+        <div style={{ background: '#fff4f4', border: '1px solid #fca5a5', borderRadius: '12px', padding: '12px 16px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '9px', fontSize: '13px', color: '#c53030', fontWeight: 500 }}>
+          <i className="ti ti-alert-circle" style={{ fontSize: '16px', flexShrink: 0 }} />
+          {refetchError}
+        </div>
+      )}
 
       <section className="dashboard-hero">
         <div className="dashboard-welcome">

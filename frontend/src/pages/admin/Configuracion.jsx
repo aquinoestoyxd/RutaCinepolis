@@ -40,8 +40,13 @@ export default function Configuracion() {
   const [editValue, setEditValue] = useState('')
   const [msg, setMsg]         = useState({ text: '', type: 'success' })
   const [loading, setLoading] = useState(false)
+  const [loadingList, setLoadingList] = useState(true)
 
-  const load = async () => { try { setConfigs(await getConfig()) } catch {} }
+  const load = async () => {
+    setLoadingList(true)
+    try { setConfigs(await getConfig()) } catch { setMsg({ text: 'Error al cargar configuracion', type: 'error' }) }
+    finally { setLoadingList(false) }
+  }
   useEffect(() => { load() }, [])
 
   const handleSave = async key => {
@@ -85,6 +90,12 @@ export default function Configuracion() {
           </div>
         )}
 
+        {loadingList ? (
+          <div style={{ background: '#fff', borderRadius: '18px', border: `1px solid ${BORDER}`, padding: '64px', textAlign: 'center' }}>
+            <i className="ti ti-loader-2" style={{ fontSize: '36px', color: NAVY, display: 'block', margin: '0 auto 14px', animation: 'spin 1s linear infinite' }} />
+            <p style={{ color: '#8892aa', margin: 0, fontSize: '15px', fontWeight: 500 }}>Cargando configuracion...</p>
+          </div>
+        ) : null}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '800px' }}>
           {Object.entries(grouped).map(([group, items], gi) => {
             const gc = groupColors[group] || NAVY
@@ -110,8 +121,9 @@ export default function Configuracion() {
                         {isEdit ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
                             <input className="cp-inp" style={{ height: '38px', width: '120px', borderRadius: '9px', border: `1.5px solid ${BORDER}`, padding: '0 12px', fontSize: '14px', fontWeight: 700, outline: 'none', fontFamily: "'Barlow',sans-serif", textAlign: 'right', color: '#0f1726' }} value={editValue} onChange={e => setEditValue(e.target.value)} autoFocus />
-                            <button onClick={() => handleSave(c.key)} disabled={loading} style={{ height: '38px', padding: '0 16px', borderRadius: '9px', background: NAVY, color: '#fff', border: 'none', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Barlow',sans-serif" }}>
-                              {loading ? '...' : 'Guardar'}
+                            <button onClick={() => handleSave(c.key)} disabled={loading} style={{ height: '38px', padding: '0 16px', borderRadius: '9px', background: NAVY, color: '#fff', border: 'none', fontSize: '13px', fontWeight: 700, cursor: 'pointer', fontFamily: "'Barlow',sans-serif", display: 'flex', alignItems: 'center', gap: '5px' }}>
+                              {loading ? <i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> : null}
+                              {loading ? 'Guardando...' : 'Guardar'}
                             </button>
                             <button onClick={() => setEditing(null)} style={{ height: '38px', padding: '0 14px', borderRadius: '9px', background: '#fff', color: '#374151', border: `1.5px solid ${BORDER}`, fontSize: '13px', cursor: 'pointer', fontFamily: "'Barlow',sans-serif" }}>
                               X
