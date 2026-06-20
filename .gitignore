@@ -1,0 +1,23 @@
+# Backend
+backend/node_modules/
+backend/dist/
+backend/.env
+backend/*.log
+backend/logs/
+backend/coverage/
+backend/*.tsbuildinfo
+backend/prisma/migrations/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/*.log
+
+# Deployment secrets
+.env.prod
+.env.*.local
+
+# General
+.DS_Store
+Thumbs.db

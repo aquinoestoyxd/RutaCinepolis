@@ -1,0 +1,452 @@
+// Ruta Cinépolis - Database Schema
+// Sistema de membresía por niveles: Estándar, Premium, Golden
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────
+// ENUMS
+// ──────────────────────────────────────────────
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum LevelName {
+  ESTANDAR
+  PREMIUM
+  GOLDEN
+}
+
+enum BenefitType {
+  DISCOUNT_TICKET
+  DISCOUNT_CANDY
+  AVANT_PREMIERE
+  PREMIUM_ROOM
+  MERCHANDISE
+  POINTS_REDEMPTION
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum TransactionType {
+  PURCHASE_TICKET
+  PURCHASE_CANDY
+  REDEMPTION
+  ADJUSTMENT
+  POINTS_EXPIRY
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REVERSED
+}
+
+enum TransactionOrigin {
+  WEB
+  POS
+}
+
+enum RedemptionStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum UserRole {
+  CLIENTE
+  CAJERO
+  ADMINISTRADOR
+}
+
+enum NotificationType {
+  POINTS_EARNED
+  LEVEL_PROGRESS
+  LEVEL_UPGRADE
+  BENEFIT_AVAILABLE
+  MERCHANDISE_DELIVERY
+  WELCOME
+  POINTS_EXPIRY_WARNING
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  LEVEL_UPGRADE
+  POINTS_ADJUSTMENT
+  REDEMPTION
+  CONFIG_CHANGE
+}
+
+// ──────────────────────────────────────────────
+// USUARIOS DEL SISTEMA — solo CAJERO y ADMIN
+// Los miembros RC no tienen cuenta aquí;
+// usan la app Cinépolis con su número de tarjeta.
+// ──────────────────────────────────────────────
+
+model User {
+  id          String   @id @default(uuid())
+  email       String   @unique
+  password    String
+  role        UserRole @default(CAJERO)
+  isActive    Boolean  @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  auditLogs   AuditLog[]
+  deliveries  MerchandiseDelivery[] @relation("AdminDeliveries")
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// ──────────────────────────────────────────────
+// MIEMBROS RC (CU-01) — registrados por el cajero
+// ──────────────────────────────────────────────
+
+model Member {
+  id           String       @id @default(uuid())
+  dni          String       @unique @db.VarChar(8)
+  firstName    String       @db.VarChar(100)
+  lastName     String       @db.VarChar(100)
+  email        String?      @unique @db.VarChar(150)
+  phone        String?      @db.VarChar(15)
+  birthDate    DateTime?    @db.Date
+  cardNumber   String       @unique @db.VarChar(16)
+  status       MemberStatus @default(ACTIVE)
+  registeredBy String?      @db.VarChar(100)
+  registeredAt DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  membership     Membership?
+  transactions   Transaction[]
+  redemptions    Redemption[]
+  notifications  Notification[]
+  deliveries     MerchandiseDelivery[] @relation("MemberDeliveries")
+
+  @@index([dni])
+  @@index([cardNumber])
+  @@index([email])
+  @@index([status])
+  @@map("members")
+}
+
+// ──────────────────────────────────────────────
+// NIVELES DE MEMBRESÍA (RC-F03)
+// ──────────────────────────────────────────────
+
+model Level {
+  id                String    @id @default(uuid())
+  name              LevelName @unique
+  displayName       String    @db.VarChar(50)
+  minVisits         Int       @default(0)
+  pointsMultiplier  Decimal   @default(1.0) @db.Decimal(4, 2)
+  description       String?   @db.Text
+  colorHex          String?   @db.VarChar(7)
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  memberships    Membership[]
+  levelBenefits  LevelBenefit[]
+
+  @@map("levels")
+}
+
+// ──────────────────────────────────────────────
+// MEMBRESÍA (estado actual del miembro) (RC-F02, RC-F06)
+// ──────────────────────────────────────────────
+
+model Membership {
+  id               String   @id @default(uuid())
+  memberId         String   @unique
+  levelId          String
+  points           Int      @default(0)
+  totalVisits      Int      @default(0)
+  totalSpent       Decimal  @default(0) @db.Decimal(10, 2)
+  levelUpdatedAt   DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  member  Member @relation(fields: [memberId], references: [id])
+  level   Level  @relation(fields: [levelId], references: [id])
+
+  @@index([levelId])
+  @@index([points])
+  @@index([totalVisits])
+  @@map("memberships")
+}
+
+// ──────────────────────────────────────────────
+// BENEFICIOS (RC-F04, RC-F05)
+// ──────────────────────────────────────────────
+
+model Benefit {
+  id             String       @id @default(uuid())
+  name           String       @db.VarChar(150)
+  description    String?      @db.Text
+  type           BenefitType
+  discountType   DiscountType?
+  discountValue  Decimal?     @db.Decimal(8, 2)
+  pointsCost     Int?
+  maxUsesPerMonth Int?
+  validFrom      DateTime?
+  validUntil     DateTime?
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  levelBenefits  LevelBenefit[]
+  redemptions    Redemption[]
+
+  @@index([type])
+  @@index([isActive])
+  @@map("benefits")
+}
+
+// ──────────────────────────────────────────────
+// BENEFICIOS POR NIVEL (relación N:M)
+// ──────────────────────────────────────────────
+
+model LevelBenefit {
+  id        String   @id @default(uuid())
+  levelId   String
+  benefitId String
+  createdAt DateTime @default(now())
+
+  level   Level   @relation(fields: [levelId], references: [id])
+  benefit Benefit @relation(fields: [benefitId], references: [id])
+
+  @@unique([levelId, benefitId])
+  @@index([levelId])
+  @@index([benefitId])
+  @@map("level_benefits")
+}
+
+// ──────────────────────────────────────────────
+// TRANSACCIONES (RC-F02, RC-F23, CU-03)
+// ──────────────────────────────────────────────
+
+model Transaction {
+  id              String            @id @default(uuid())
+  memberId        String
+  posId           String?           @db.VarChar(50)
+  type            TransactionType
+  amount          Decimal           @db.Decimal(10, 2)
+  pointsEarned    Int               @default(0)
+  pointsUsed      Int               @default(0)
+  discountApplied Decimal           @default(0) @db.Decimal(8, 2)
+  status          TransactionStatus @default(PENDING)
+  origin          TransactionOrigin @default(WEB)
+  description     String?           @db.VarChar(255)
+  externalRef     String?           @db.VarChar(100)
+  metadata        Json?
+  processedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  member     Member      @relation(fields: [memberId], references: [id])
+  redemption Redemption?
+
+  @@index([memberId])
+  @@index([type])
+  @@index([status])
+  @@index([origin])
+  @@index([createdAt])
+  @@index([posId])
+  @@map("transactions")
+}
+
+// ──────────────────────────────────────────────
+// CANJES (RC-F05, CU-04)
+// ──────────────────────────────────────────────
+
+model Redemption {
+  id            String           @id @default(uuid())
+  memberId      String
+  benefitId     String
+  transactionId String           @unique
+  pointsUsed    Int
+  status        RedemptionStatus @default(PENDING)
+  notes         String?          @db.VarChar(255)
+  processedAt   DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  member      Member      @relation(fields: [memberId], references: [id])
+  benefit     Benefit     @relation(fields: [benefitId], references: [id])
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+
+  @@index([memberId])
+  @@index([benefitId])
+  @@index([status])
+  @@map("redemptions")
+}
+
+// ──────────────────────────────────────────────
+// MERCHANDISING (kit Golden) (RC-F07)
+// ──────────────────────────────────────────────
+
+model Merchandise {
+  id             String    @id @default(uuid())
+  name           String    @db.VarChar(150)
+  description    String?   @db.Text
+  levelRequired  LevelName @default(GOLDEN)
+  stockCurrent   Int       @default(0)
+  stockMinAlert  Int       @default(10)
+  stockTotal     Int       @default(0)
+  imageUrl       String?   @db.VarChar(500)
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  deliveries MerchandiseDelivery[]
+
+  @@index([levelRequired])
+  @@index([isActive])
+  @@map("merchandise")
+}
+
+// ──────────────────────────────────────────────
+// ENTREGA DE MERCHANDISING
+// ──────────────────────────────────────────────
+
+model MerchandiseDelivery {
+  id             String   @id @default(uuid())
+  merchandiseId  String
+  memberId       String
+  adminId        String
+  quantity       Int      @default(1)
+  notes          String?  @db.VarChar(255)
+  deliveredAt    DateTime @default(now())
+
+  merchandise Merchandise @relation(fields: [merchandiseId], references: [id])
+  member      Member      @relation("MemberDeliveries", fields: [memberId], references: [id])
+  admin       User        @relation("AdminDeliveries", fields: [adminId], references: [id])
+
+  @@index([merchandiseId])
+  @@index([memberId])
+  @@index([deliveredAt])
+  @@map("merchandise_deliveries")
+}
+
+// ──────────────────────────────────────────────
+// NOTIFICACIONES (RC-F08)
+// ──────────────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(uuid())
+  memberId  String
+  type      NotificationType
+  title     String           @db.VarChar(150)
+  message   String           @db.Text
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@index([memberId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ──────────────────────────────────────────────
+// AUDITORÍA (RC-F24)
+// ──────────────────────────────────────────────
+
+model AuditLog {
+  id         String      @id @default(uuid())
+  userId     String?
+  action     AuditAction
+  entity     String      @db.VarChar(50)
+  entityId   String?     @db.VarChar(50)
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?     @db.VarChar(45)
+  userAgent  String?     @db.VarChar(500)
+  createdAt  DateTime    @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ──────────────────────────────────────────────
+// PROMOCIONES (HU-07)
+// ──────────────────────────────────────────────
+
+model Promotion {
+  id           String   @id @default(uuid())
+  title        String   @db.VarChar(200)
+  description  String?  @db.Text
+  imageUrl     String?  @db.VarChar(500)
+  startDate    DateTime @db.Timestamptz()
+  endDate      DateTime @db.Timestamptz()
+  terms        String?  @db.Text
+  restrictions String?  @db.Text
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("promotions")
+}
+
+// ──────────────────────────────────────────────
+// CONFIGURACIÓN DEL SISTEMA (RC-F24, reglas de negocio)
+// ──────────────────────────────────────────────
+
+model SystemConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique @db.VarChar(100)
+  value       String   @db.Text
+  description String?  @db.VarChar(255)
+  updatedBy   String?  @db.VarChar(100)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([key])
+  @@map("system_configs")
+}
+
+// ──────────────────────────────────────────────
+// COLA OFFLINE POS (CU-02 FA-02, calidad 7.2)
+// ──────────────────────────────────────────────
+
+model PosOfflineQueue {
+  id          String   @id @default(uuid())
+  posId       String   @db.VarChar(50)
+  payload     Json
+  attempts    Int      @default(0)
+  lastError   String?  @db.Text
+  processedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([posId])
+  @@index([processedAt])
+  @@map("pos_offline_queue")
+}
