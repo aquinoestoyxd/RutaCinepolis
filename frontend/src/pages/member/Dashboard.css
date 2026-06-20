@@ -1,3 +1,151 @@
+/* ── Announcement Banner ───────────────────────────────────────── */
+.announcement-banner {
+  width: 100%;
+  position: relative;
+  z-index: 50;
+}
+
+.announcement-banner__inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(var(--layout-max-width, 1280px), calc(100% - 48px));
+  margin: 0 auto;
+  padding: 10px 0;
+  color: #ffffff;
+}
+
+.announcement-banner__icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.announcement-banner__text {
+  flex: 1;
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #ffffff;
+}
+
+.announcement-banner__link {
+  flex-shrink: 0;
+  padding: 4px 14px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.announcement-banner__link:hover {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.8);
+}
+
+.announcement-banner__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.announcement-banner__close:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+/* ── Bell button & notification badge ─────────────────────────── */
+.topbar-bell-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.topbar-bell-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.topbar-bell-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  border: 1.5px solid #00235f;
+  display: block;
+  animation: bell-pulse 2s infinite;
+}
+
+@keyframes bell-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50%       { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+
+.user-dropdown__notif-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: #1f2937;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+
+.user-dropdown__notif-btn:hover {
+  background: #f3f4f6;
+}
+
+.user-dropdown__notif-badge {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ───────────────────────────────────────────────────────────────── */
+
 body:has(.dashboard-page) #root {
   width: 100%;
   max-width: none;
@@ -494,7 +642,6 @@ body:has(.dashboard-page) #root {
 }
 
 .notification-item--unread {
-  border-left: 3px solid #0b5cff;
   background: #f8faff;
 }
 

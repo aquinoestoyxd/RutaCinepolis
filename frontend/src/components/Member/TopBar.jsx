@@ -1,10 +1,17 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 function TopBar({ user, onLogout }) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
   const navigate = useNavigate();
+  const { dashboardData } = useAuth();
+
+  // Notificaciones no leídas desde el dashboard
+  const unreadCount = dashboardData?.notifications
+    ? dashboardData.notifications.filter((n) => !n.isRead).length
+    : 0;
 
   useEffect(() => {
     function handleClick(e) {
@@ -53,9 +60,14 @@ function TopBar({ user, onLogout }) {
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   Historial de Actividad
                 </button>
-                <button type="button" onClick={() => go("/member/notifications")}>
+                <button type="button" onClick={() => go("/member/notifications")} className="user-dropdown__notif-btn">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                   Notificaciones
+                  {unreadCount > 0 && (
+                    <span className="user-dropdown__notif-badge">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
                 </button>
                 <hr />
                 <button type="button" onClick={onLogout} className="user-dropdown__logout">
