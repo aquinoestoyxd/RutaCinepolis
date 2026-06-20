@@ -263,6 +263,8 @@ export class MembersService {
       active: p.isActive,
     }));
 
+    await membershipService.notifyLevelProgressIfNeeded(member.id);
+
     const [progress, notificationResult, unreadCount] = await Promise.all([
       membershipService.getProgressForMember(member.id),
       notificationService.getForMember(member.id, false, 1, 8),

@@ -295,6 +295,28 @@ async function main() {
       visits: 2,
       points: 100,
       spent: 20.00
+    },
+    {
+      dni: '75678901',
+      firstName: 'Sofía',
+      lastName: 'Mendoza',
+      email: 'sofia@mail.com',
+      cardNumber: '5890000011110005',
+      levelId: premium.id,
+      visits: 24,
+      points: 3200,
+      spent: 480.00
+    },
+    {
+      dni: '76789012',
+      firstName: 'Alejandro',
+      lastName: 'Rivas',
+      email: 'alejandro@mail.com',
+      cardNumber: '5890000011110006',
+      levelId: estandar.id,
+      visits: 9,
+      points: 680,
+      spent: 135.00
     }
   ];
 

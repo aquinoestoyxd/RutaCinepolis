@@ -97,8 +97,17 @@ export function AuthProvider({ children }) {
     setDashboardData(null)
   }
 
+  const updateDashboardData = (updates) => {
+    setDashboardData(prev => {
+      if (!prev) return prev
+      const next = { ...prev, ...updates }
+      localStorage.setItem('rc_dashboard', JSON.stringify(next))
+      return next
+    })
+  }
+
   return (
-    <AuthContext.Provider value={{ user, dashboardData, login, loginByCard, logout, loading, refetchError }}>
+    <AuthContext.Provider value={{ user, dashboardData, login, loginByCard, logout, updateDashboardData, loading, refetchError }}>
       {children}
     </AuthContext.Provider>
   )

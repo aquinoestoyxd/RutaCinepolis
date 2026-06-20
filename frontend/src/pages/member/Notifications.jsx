@@ -23,7 +23,7 @@ function formatDate(value) {
 }
 
 function Notifications() {
-  const { user, dashboardData, logout } = useAuth();
+  const { user, dashboardData, logout, updateDashboardData } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,14 +51,22 @@ function Notifications() {
   const handleRead = async (id) => {
     try {
       await markNotificationAsReadMember(id);
-      setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n));
+      setNotifications((prev) => {
+        const next = prev.map((n) => n.id === id ? { ...n, isRead: true } : n);
+        updateDashboardData({ unreadNotifications: next.filter((n) => !n.isRead).length });
+        return next;
+      });
     } catch {}
   };
 
   const handleReadAll = async () => {
     try {
       await markAllNotificationsAsReadMember();
-      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+      setNotifications((prev) => {
+        const next = prev.map((n) => ({ ...n, isRead: true }));
+        updateDashboardData({ unreadNotifications: 0 });
+        return next;
+      });
     } catch {}
   };
 

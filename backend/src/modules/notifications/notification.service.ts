@@ -37,15 +37,18 @@ export class NotificationService {
 
   async upsertLevelProgress(memberId: string, title: string, message: string) {
     const existing = await prisma.notification.findFirst({
-      where: { memberId, type: NotificationType.LEVEL_PROGRESS, isRead: false },
+      where: { memberId, type: NotificationType.LEVEL_PROGRESS },
       orderBy: { createdAt: 'desc' },
     });
 
     if (existing) {
-      return prisma.notification.update({
-        where: { id: existing.id },
-        data: { title, message, createdAt: new Date() },
-      });
+      if (!existing.isRead) {
+        return prisma.notification.update({
+          where: { id: existing.id },
+          data: { title, message, createdAt: new Date() },
+        });
+      }
+      return existing;
     }
 
     return prisma.notification.create({
